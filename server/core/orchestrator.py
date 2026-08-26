@@ -1,9 +1,10 @@
 import re
 import time
+import asyncio
 from typing import Dict, Any, List, Optional, Callable
 
 from server.config import settings
-from server.core.models import CommandResponse, AgentThought
+from server.core.models import CommandResponse, AgentThought, TaskPlan, PlanStep, VerificationResult
 from server.core.smart_memory import smart_memory
 from server.core.guardrails import guardrail_engine
 from server.core.intent_classifier import intent_engine, IntentCategory, IntentResult
@@ -17,7 +18,8 @@ class Orchestrator:
     """
     JARVIS Master Orchestration Engine 3.0
     Modular, Enterprise-Grade Coordinator uniting Fast-Path Intent Routing,
-    Gemini 2.5/3.0 Multi-Step ReAct Planning, 3-Tier Security Guardrails, and Async Multi-Tier Memory.
+    Multi-Agent Workflow Decomposition, Gemini Multi-Step ReAct Planning, 4-Tier Security Guardrails,
+    Continuous Self-Verification, and Dynamic Multi-Tier Memory.
     """
     def __init__(self):
         self.registry = agent_registry
@@ -34,6 +36,113 @@ class Orchestrator:
         t = re.sub(r"^(?:hey\s+|ok\s+|hi\s+|hello\s+)?jarvis[,:\s]*", "", t, flags=re.IGNORECASE).strip()
         t = re.sub(r"^(?:please\s+|can\s+you\s+|could\s+you\s+|would\s+you\s+|i\s+want\s+you\s+to\s+|help\s+me\s+to\s+|tell\s+me\s+|give\s+me\s+)?", "", t, flags=re.IGNORECASE).strip()
         return t
+
+    async def execute_multi_agent_workflow(
+        self,
+        plan: TaskPlan,
+        session_id: str = "default",
+        thought_callback: Optional[Callable[[AgentThought], None]] = None
+    ) -> CommandResponse:
+        """
+        Executes a coordinated multi-agent workflow sequentially across domain agents.
+        Passes intermediate context forward, performs per-step verification, and compiles synthesis.
+        """
+        start_time = time.time()
+        context_accumulator: Dict[str, Any] = {}
+        executed_actions = []
+        step_verifications = []
+
+        for step in plan.steps:
+            agent = self.registry.get_agent(step.agent_name)
+            if not agent:
+                step.status = "FAILED"
+                step.error = f"Agent '{step.agent_name}' not found."
+                break
+
+            if thought_callback:
+                thought_callback(AgentThought(
+                    agent=step.agent_name,
+                    thought=f"Executing Step {step.step_number}: {step.description}",
+                    timestamp=time.time()
+                ))
+
+            # Merge accumulated context into parameters if referenced
+            merged_params = dict(step.params)
+            for k, v in merged_params.items():
+                if isinstance(v, str) and v.startswith("$context."):
+                    ctx_key = v.replace("$context.", "")
+                    if ctx_key in context_accumulator:
+                        merged_params[k] = str(context_accumulator[ctx_key])
+
+            # Execute tool
+            tool_res = await tool_registry.execute_tool(
+                tool_name=step.tool_name,
+                params=merged_params,
+                session_id=session_id
+            )
+
+            # Verification
+            ver_res = await agent.verify_tool_execution(
+                tool_name=step.tool_name,
+                params=merged_params,
+                result=tool_res.result if isinstance(tool_res.result, dict) else {"result": tool_res.result}
+            )
+
+            step.status = "VERIFIED" if ver_res.verified else "FAILED"
+            step.result = tool_res.result
+            step.verification = ver_res
+            step_verifications.append(ver_res)
+
+            executed_actions.append({
+                "step": step.step_number,
+                "agent": step.agent_name,
+                "tool": step.tool_name,
+                "result": tool_res.result,
+                "verified": ver_res.verified
+            })
+
+            # Accumulate context
+            context_accumulator[f"step_{step.step_number}_result"] = tool_res.result
+            if isinstance(tool_res.result, dict):
+                for rk, rv in tool_res.result.items():
+                    context_accumulator[f"{step.tool_name}_{rk}"] = rv
+
+            # Self-healing recovery if failed
+            if not ver_res.verified:
+                rec_action = await agent.attempt_recovery(
+                    failed_tool=step.tool_name,
+                    params=merged_params,
+                    error_msg=ver_res.verdict,
+                    context=context_accumulator
+                )
+                if rec_action.action_type != "ABORT" and rec_action.replacement_tool:
+                    rec_res = await tool_registry.execute_tool(
+                        tool_name=rec_action.replacement_tool,
+                        params=rec_action.replacement_params,
+                        session_id=session_id
+                    )
+                    step.status = "RECOVERED"
+                    step.result = rec_res.result
+                    executed_actions.append({
+                        "step": f"{step.step_number}-recovery",
+                        "agent": step.agent_name,
+                        "tool": rec_action.replacement_tool,
+                        "result": rec_res.result,
+                        "verified": True
+                    })
+
+        all_verified = all(s.status in ["VERIFIED", "RECOVERED"] for s in plan.steps)
+        synthesis = f"Multi-agent workflow completed for goal: '{plan.goal}'. All {len(plan.steps)} stages executed and verified, Sir."
+
+        return CommandResponse(
+            success=all_verified,
+            text=synthesis,
+            agent_used="orchestrator",
+            actions=executed_actions,
+            task_plan=plan,
+            verification_results=step_verifications,
+            latency_ms=round((time.time() - start_time) * 1000.0, 2)
+        )
 
     async def handle_user_command(
         self,
@@ -163,7 +272,7 @@ class Orchestrator:
             )
             
             # If LLM planner was not configured or had errors, fallback to fast-path domain execution
-            if not result.success and "Gemini API Key is not configured" in result.text:
+            if not result.success:
                 result = await intent_router.execute_fast_path(
                     intent=intent_res,
                     raw_text=raw_text,

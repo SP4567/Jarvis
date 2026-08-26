@@ -1,128 +1,82 @@
-@tailwind base;
+﻿@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   body {
-    background-color: #020612;
+    background-color: #030712;
     color: #e2e8f0;
-    font-family: 'JetBrains Mono', 'Orbitron', monospace;
+    font-family: 'Inter', 'JetBrains Mono', -apple-system, BlinkMacSystemFont, sans-serif;
     overflow-x: hidden;
   }
 }
 
-/* Custom Futuristic Scrollbar */
+/* Professional Enterprise Dark Scrollbar */
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: rgba(2, 6, 23, 0.8);
+  background: rgba(3, 7, 18, 0.9);
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(6, 182, 212, 0.35);
+  background: rgba(71, 85, 105, 0.4);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(6, 182, 212, 0.7);
+  background: rgba(100, 116, 139, 0.7);
 }
 
-/* Holographic glass panel style */
+/* High-Density Enterprise Glass Panel */
 .glass-panel {
-  background: linear-gradient(135deg, rgba(6, 15, 33, 0.85) 0%, rgba(2, 8, 22, 0.92) 100%);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(6, 182, 212, 0.22);
-  box-shadow: 0 10px 35px -5px rgba(0, 0, 0, 0.7), inset 0 0 15px rgba(6, 182, 212, 0.05);
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.88) 0%, rgba(10, 15, 30, 0.94) 100%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(51, 65, 85, 0.5);
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.6);
   position: relative;
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .glass-panel:hover {
-  border-color: rgba(6, 182, 212, 0.38);
-  box-shadow: 0 12px 40px -5px rgba(0, 0, 0, 0.8), inset 0 0 20px rgba(6, 182, 212, 0.08);
+  border-color: rgba(71, 85, 105, 0.8);
+  box-shadow: 0 6px 24px -2px rgba(0, 0, 0, 0.7);
 }
 
-/* Tech corner accents */
-.tech-corner-tl {
-  position: absolute;
-  top: -1px;
-  left: -1px;
-  width: 10px;
-  height: 10px;
-  border-top: 2px solid #00f0ff;
-  border-left: 2px solid #00f0ff;
-  pointer-events: none;
-}
-.tech-corner-tr {
-  position: absolute;
-  top: -1px;
-  right: -1px;
-  width: 10px;
-  height: 10px;
-  border-top: 2px solid #00f0ff;
-  border-right: 2px solid #00f0ff;
-  pointer-events: none;
-}
-.tech-corner-bl {
-  position: absolute;
-  bottom: -1px;
-  left: -1px;
-  width: 10px;
-  height: 10px;
-  border-bottom: 2px solid #00f0ff;
-  border-left: 2px solid #00f0ff;
-  pointer-events: none;
-}
+/* Subtle corner indicators */
+.tech-corner-tl,
+.tech-corner-tr,
+.tech-corner-bl,
 .tech-corner-br {
-  position: absolute;
-  bottom: -1px;
-  right: -1px;
-  width: 10px;
-  height: 10px;
-  border-bottom: 2px solid #00f0ff;
-  border-right: 2px solid #00f0ff;
-  pointer-events: none;
+  display: none;
 }
 
-/* Glowing text */
+/* Clean, high-contrast typography */
 .glow-text-cyan {
-  text-shadow: 0 0 10px rgba(0, 240, 255, 0.7), 0 0 20px rgba(0, 240, 255, 0.35);
+  color: #38bdf8;
 }
 .glow-text-amber {
-  text-shadow: 0 0 10px rgba(255, 170, 0, 0.7), 0 0 20px rgba(255, 170, 0, 0.35);
+  color: #fbbf24;
 }
 .glow-text-emerald {
-  text-shadow: 0 0 10px rgba(0, 255, 157, 0.7), 0 0 20px rgba(0, 255, 157, 0.35);
+  color: #34d399;
 }
 .glow-text-danger {
-  text-shadow: 0 0 10px rgba(255, 51, 102, 0.8), 0 0 20px rgba(255, 51, 102, 0.4);
+  color: #f87171;
 }
 
-/* Sci-Fi Grid Background */
+/* Clean Subtle Engineering Grid */
 .bg-cyber-grid {
-  background-size: 35px 35px;
+  background-size: 32px 32px;
   background-image: 
-    linear-gradient(to right, rgba(0, 240, 255, 0.035) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(0, 240, 255, 0.035) 1px, transparent 1px);
+    linear-gradient(to right, rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
 }
 
-/* Scanline Overlay */
-.scanline-overlay {
-  background: linear-gradient(
-    to bottom,
-    rgba(255,255,255,0),
-    rgba(255,255,255,0) 50%,
-    rgba(0, 240, 255, 0.015) 50%,
-    rgba(0, 240, 255, 0.015)
-  );
-  background-size: 100% 4px;
-}
-
-/* Pulse Glow Keyframes */
+/* Animation Keyframes */
 @keyframes pulseSlow {
-  0%, 100% { opacity: 0.85; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.03); }
+  0%, 100% { opacity: 0.9; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.01); }
 }
 
 .animate-pulse-slow {

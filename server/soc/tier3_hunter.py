@@ -1,17 +1,28 @@
-import uuid
+﻿import uuid
 import base64
 import re
 from datetime import datetime
 from typing import Dict, Any, List, Optional
-from server.soc.models import IncidentCase, DetectionRule
+from server.soc.base_soc_agent import BaseSocAgent
+from server.soc.models import (
+    IncidentContext,
+    IncidentCase,
+    DetectionRule,
+    AgentFinding,
+    AgentExecutionPhase
+)
 
-class Tier3ThreatHunterAgent:
+class Tier3ThreatHunterAgent(BaseSocAgent):
     """
     Tier 3 — Threat Hunter & Security SME Agent
     Proactive threat hunting, script deobfuscation, malware analysis, root-cause analysis, and automated Sigma rule engineering.
     """
     def __init__(self):
-        self.name = "Tier 3: Threat Hunter & SME"
+        super().__init__(
+            name="tier3_hunter_agent",
+            role_title="Tier 3 Threat Hunter & SME",
+            description="Executes proactive hypothesis hunting, script deobfuscation, root-cause analysis, and automated Sigma detection engineering."
+        )
 
     def deobfuscate_script(self, raw_script: str) -> Dict[str, Any]:
         """Analyzes and deobfuscates suspicious command-line or script artifacts"""
@@ -29,7 +40,6 @@ class Tier3ThreatHunterAgent:
             try:
                 b64_str = b64_match.group(1)
                 decoded_bytes = base64.b64decode(b64_str)
-                # PowerShell utf-16le decode
                 try:
                     decoded_text = decoded_bytes.decode('utf-16le')
                 except Exception:
@@ -39,14 +49,12 @@ class Tier3ThreatHunterAgent:
                 analysis_result["encoding_type"] = "PowerShell Base64 (UTF-16LE)"
                 analysis_result["decoded_content"] = decoded_text
 
-                # Extract IPs and URLs from decoded content
                 ips = re.findall(r'\b(?:\d{1,3}\.){3}\d{1,3}\b', decoded_text)
                 urls = re.findall(r'https?://[^\s"\'>]+', decoded_text)
                 analysis_result["extracted_iocs"] = list(set(ips + urls))
             except Exception as e:
                 analysis_result["suspicious_indicators"].append(f"Base64 decoding failed: {str(e)}")
 
-        # Check for common download cradles & living-off-the-land utilities
         script_lower = raw_script.lower()
         if "downloadstring" in script_lower or "webrequest" in script_lower:
             analysis_result["suspicious_indicators"].append("Web download cradle detected (IEX / DownloadString)")
@@ -55,17 +63,18 @@ class Tier3ThreatHunterAgent:
 
         return analysis_result
 
-    def generate_sigma_detection_rule(self, case: IncidentCase) -> DetectionRule:
+    def generate_sigma_detection_rule(self, case: IncidentContext) -> DetectionRule:
         """Synthesizes a production-ready Sigma detection rule based on validated incident artifacts"""
         rule_id = f"SIGMA-{uuid.uuid4().hex[:6].upper()}"
         now = datetime.now().isoformat()
-        technique = case.initial_alert.mitre_attack[0] if case.initial_alert.mitre_attack else None
-        
-        tech_id = technique.technique_id if technique else "T1059"
-        tech_name = technique.technique_name if technique else "Command Execution"
-        tactic = technique.tactic.lower().replace(" ", "_") if technique else "execution"
+        tech = case.mitre_attack[0] if case.mitre_attack else None
+        if not tech and case.initial_alert and case.initial_alert.mitre_attack:
+            tech = case.initial_alert.mitre_attack[0]
+            
+        tech_id = tech.technique_id if tech else "T1059"
+        tech_name = tech.technique_name if tech else "Command Execution"
+        tactic = tech.tactic.lower().replace(" ", "_") if tech else "execution"
 
-        # Generate standard Sigma YAML string
         sigma_yaml = f"""title: Automated Detection - {case.title}
 id: {uuid.uuid4()}
 status: experimental
@@ -94,7 +103,6 @@ falsepositives:
     - Legitimate IT admin automation with explicit change tickets
 level: {case.severity.value.lower()}
 """
-
         return DetectionRule(
             rule_id=rule_id,
             title=f"Detect {tech_name} ({tech_id})",
@@ -106,17 +114,25 @@ level: {case.severity.value.lower()}
             created_at=now
         )
 
-    def conduct_threat_hunt(self, case: IncidentCase) -> IncidentCase:
+    def conduct_threat_hunt(self, case: IncidentContext) -> IncidentContext:
         """Executes deep threat hunt, script deobfuscation, and rule engineering on incident case"""
-        # 1. Synthesize Sigma Rule
         rule = self.generate_sigma_detection_rule(case)
         case.detection_rules.append(rule)
 
-        # 2. Add Tier 3 Post-Mortem Findings
         case.post_incident_summary = (
             f"Tier 3 SME Root-Cause Analysis: Incident {case.case_id} confirmed as unauthorized {case.title}. "
             f"Adversary leveraged living-off-the-land techniques. A new detection rule ({rule.rule_id}) has been "
             f"compiled and deployed to Tier 1 Triage to proactively prevent future enterprise recurrences."
+        )
+
+        case.agent_findings[self.name] = AgentFinding(
+            agent_name=self.name,
+            role_title=self.role_title,
+            phase=AgentExecutionPhase.REPORT,
+            confidence=0.98,
+            summary=f"Tier 3 Threat Hunt concluded. Synthesized detection rule {rule.rule_id}.",
+            structured_data={"rule_id": rule.rule_id, "mitre": [t.technique_id for t in case.mitre_attack]},
+            recommendations=["Deploy detection rule to production SIEM", "Execute retrospective IOC hunt across historical 90-day logs"]
         )
 
         return case

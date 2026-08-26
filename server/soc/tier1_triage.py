@@ -1,23 +1,31 @@
-import re
+﻿import re
 import uuid
 from datetime import datetime
 from typing import Dict, Any, List, Optional
+from server.soc.base_soc_agent import BaseSocAgent
 from server.soc.models import (
     SecurityEvent,
     Tier1Decision,
     SeverityLevel,
     ThreatIntelResult,
-    MitreAttackMapping
+    MitreAttackMapping,
+    IncidentContext,
+    AgentFinding,
+    AgentExecutionPhase
 )
 from server.soc.cti_feed import cti_feed_manager
 
-class Tier1TriageAgent:
+class Tier1TriageAgent(BaseSocAgent):
     """
     Tier 1 — Triage Analyst Agent
     High-volume alert ingestion, normalization, enrichment, deduplication, and initial risk classification.
     """
     def __init__(self):
-        self.name = "Tier 1: Triage Analyst"
+        super().__init__(
+            name="tier1_triage_agent",
+            role_title="Tier 1 Security Triage Analyst",
+            description="Performs high-volume alert ingestion, event normalization, CTI enrichment, and alert-to-disposition triage."
+        )
         
         # Asset Criticality Registry
         self.asset_registry = {
@@ -169,6 +177,23 @@ class Tier1TriageAgent:
             evidence_chain=evidence or ["Baseline normal telemetry."],
             escalate_to_tier2=escalate,
             escalation_reason=reason
+        )
+
+    def report(
+        self,
+        context: IncidentContext,
+        analysis: Dict[str, Any],
+        decision: Dict[str, Any],
+        action_results: Dict[str, Any]
+    ) -> AgentFinding:
+        return AgentFinding(
+            agent_name=self.name,
+            role_title=self.role_title,
+            phase=AgentExecutionPhase.REPORT,
+            confidence=0.94,
+            summary=f"Tier 1 Triage processed alert: Risk {context.risk_score}/100, Severity {context.severity.value}.",
+            structured_data={"risk_score": context.risk_score, "severity": context.severity.value},
+            recommendations=["Escalate to Tier 2 Incident Responder." if context.risk_score >= 35 else "Close benign."]
         )
 
 tier1_triage_agent = Tier1TriageAgent()

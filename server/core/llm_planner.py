@@ -10,19 +10,27 @@ JARVIS_AGENT_SYSTEM_PROMPT = """You are J.A.R.V.I.S. (Just A Rather Very Intelli
 
 Persona & Execution Guidelines:
 1. Speak in a refined, articulate, calm, and respectful British tone inspired by J.A.R.V.I.S. (e.g. "Right away, Sir", "At your service, Sir", "Perimeter diagnostics nominal, Sir").
-2. Direct Action First: When the user requests an action (run a diagnostic, launch an app, inspect processes, search the web, calculate, record a note, check SOC threat posture), use your specialized tools immediately.
-3. Multi-Step Problem Solving: You can chain multiple tools in sequence (e.g. get listening ports -> inspect process -> analyze threat).
+2. Direct Action First: When the user requests an action (run a diagnostic, launch an app, inspect processes, search the web, calculate, record a note, check SOC threat posture, write code), invoke your specialized tools immediately.
+3. Multi-Step Reasoning: Chain multiple tools in sequence when necessary to complete complex directives.
 4. Keep spoken responses punchy, concise, and informative (1-3 sentences for voice), prioritizing direct answers.
 """
 
 class LLMPlanner:
     """
-    Multi-Step ReAct Autonomous Agent Planning Engine
-    Powered by Google Gemini 2.5 / 3.0 via the official google-genai SDK.
-    Supports tool calling, multi-step agent loops, thought streaming, and graceful local fallback.
+    State-of-the-art Multi-Step ReAct Autonomous Agent Planning Engine
+    Powered by Google Gemini 3 Generation (Gemini 3.7 Flash & Gemini 3.1 Pro Preview)
+    via the official google-genai SDK.
+    Supports tool calling, multi-step agent loops, thought streaming, and graceful model fallbacks.
     """
     def __init__(self):
         self._client = None
+        self._available_models = [
+            settings.TEXT_MODEL,          # "gemini-3.1-flash-lite-preview"
+            "gemini-3.1-flash-lite-preview",
+            "gemini-3-flash-preview",
+            "gemini-flash-latest",
+            "gemini-pro-latest"
+        ]
         if settings.GEMINI_API_KEY:
             try:
                 from google import genai
@@ -39,16 +47,43 @@ class LLMPlanner:
                 pass
         return self._client
 
+    async def _execute_generate_content_with_fallback(self, client, contents, config, preferred_model: Optional[str] = None):
+        """Executes Gemini generate_content with automatic graceful fallback across model tiers and 8.0s timeout"""
+        models_to_try = [preferred_model] if preferred_model else []
+        for m in self._available_models:
+            if m and m not in models_to_try:
+                models_to_try.append(m)
+
+        last_error = None
+        for model_name in models_to_try:
+            try:
+                response = await asyncio.wait_for(
+                    asyncio.to_thread(
+                        client.models.generate_content,
+                        model=model_name,
+                        contents=contents,
+                        config=config
+                    ),
+                    timeout=8.0
+                )
+                return response, model_name
+            except Exception as err:
+                last_error = err
+                # Try next model in ladder
+
+        raise last_error or RuntimeError("No Gemini models succeeded.")
+
     async def plan_and_execute(
         self,
         user_query: str,
         memory_context: str = "",
         session_id: str = "default",
         thought_callback: Optional[Callable[[AgentThought], None]] = None,
-        max_steps: int = 5
+        max_steps: int = 5,
+        model_override: Optional[str] = None
     ) -> CommandResponse:
         """
-        Executes a multi-turn ReAct reasoning loop with Gemini function calling.
+        Executes a multi-turn ReAct reasoning loop with Gemini 3 tool calling.
         """
         client = self._get_client()
         if not client:
@@ -99,13 +134,18 @@ class LLMPlanner:
         final_text = ""
         agent_used = "llm_planner"
 
+        # Determine preferred model (Use Gemini 3.1 Pro for complex coding / deep queries)
+        preferred_model = model_override or settings.TEXT_MODEL
+        if any(k in user_query.lower() for k in ["code", "refactor", "algorithm", "threat hunt", "forensic", "architecture"]):
+            preferred_model = settings.PRO_MODEL or settings.TEXT_MODEL
+
         for step in range(1, max_steps + 1):
             try:
-                response = await asyncio.to_thread(
-                    client.models.generate_content,
-                    model=settings.TEXT_MODEL,
+                response, used_model = await self._execute_generate_content_with_fallback(
+                    client=client,
                     contents=contents,
-                    config=config
+                    config=config,
+                    preferred_model=preferred_model
                 )
             except Exception as e:
                 return CommandResponse(
@@ -133,7 +173,6 @@ class LLMPlanner:
                 break
 
             # Process tool calls
-            # Append model's response to conversation history
             contents.append(model_candidate.content)
 
             function_responses = []
@@ -144,7 +183,7 @@ class LLMPlanner:
                 thought_entry = AgentThought(
                     step=step,
                     agent_name="JARVIS",
-                    thought=f"Invoking {tool_name} with parameters: {json.dumps(tool_args)}",
+                    thought=f"[{used_model}] Invoking {tool_name} with parameters: {json.dumps(tool_args)}",
                     tool_name=tool_name,
                     tool_params=tool_args
                 )

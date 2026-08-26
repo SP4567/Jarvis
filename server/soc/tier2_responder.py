@@ -1,26 +1,34 @@
-import uuid
+﻿import uuid
 from datetime import datetime
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
+from server.soc.base_soc_agent import BaseSocAgent
 from server.soc.models import (
     Tier1Decision,
+    IncidentContext,
     IncidentCase,
     IncidentStatus,
     InvestigationTimelineEntry,
     InvestigationHypothesis,
     ContainmentAction,
-    ExplainabilityReport
+    ExplainabilityReport,
+    AgentFinding,
+    AgentExecutionPhase
 )
 from server.soc.soc_guardrails import soc_guardrail_engine
 
-class Tier2ResponderAgent:
+class Tier2ResponderAgent(BaseSocAgent):
     """
     Tier 2 — Incident Responder Agent
     Performs forensic timeline reconstruction, blast radius scoping, hypothesis validation, and containment execution.
     """
     def __init__(self):
-        self.name = "Tier 2: Incident Responder"
+        super().__init__(
+            name="tier2_responder_agent",
+            role_title="Tier 2 Incident Response Commander",
+            description="Coordinates in-depth incident investigation, blast radius scoping, hypothesis validation, and containment workflows."
+        )
 
-    def investigate_incident(self, alert: Tier1Decision, case_id: str) -> IncidentCase:
+    def investigate_incident(self, alert: Tier1Decision, case_id: str) -> IncidentContext:
         """Conducts in-depth forensic investigation and formulates containment strategy"""
         now = datetime.now().isoformat()
         hostname = alert.affected_assets[0]["hostname"] if alert.affected_assets else "UNKNOWN_HOST"
@@ -85,7 +93,6 @@ class Tier2ResponderAgent:
             )
             containment_actions.append(act_isolate)
 
-
         # Medium Risk Action: Firewall IOC Blocking (Auto or Policy Approved)
         for ti in alert.threat_intel:
             if ti.ioc_type in ["IP", "DOMAIN"]:
@@ -125,8 +132,9 @@ class Tier2ResponderAgent:
 
         status = IncidentStatus.CONTAINMENT_PENDING if any(a.risk_level.value == "HIGH" for a in containment_actions) else IncidentStatus.INVESTIGATING
 
-        return IncidentCase(
+        context = IncidentContext(
             case_id=case_id,
+            incident_id=case_id,
             title=f"Incident on {hostname}: {alert.mitre_attack[0].technique_name if alert.mitre_attack else 'Suspicious Activity'}",
             status=status,
             severity=alert.severity,
@@ -135,10 +143,29 @@ class Tier2ResponderAgent:
             updated_at=now,
             assigned_tier="Tier 2",
             initial_alert=alert,
+            affected_assets=alert.affected_assets,
+            affected_identities=alert.affected_identities,
+            affected_users=alert.affected_identities,
+            indicators=alert.threat_intel,
+            evidence_chain=alert.evidence_chain,
             timeline=timeline,
+            mitre_attack=alert.mitre_attack,
             hypotheses=hypotheses,
             containment_actions=containment_actions,
             explainability=explainability
         )
+
+        # Self-finding
+        context.agent_findings[self.name] = AgentFinding(
+            agent_name=self.name,
+            role_title=self.role_title,
+            phase=AgentExecutionPhase.REPORT,
+            confidence=float(alert.confidence_score),
+            summary=f"Incident response scoped on {hostname}. {len(containment_actions)} containment action(s) proposed.",
+            structured_data={"status": status.value, "containment_actions": len(containment_actions)},
+            recommendations=explainability.recommended_next_actions
+        )
+
+        return context
 
 tier2_responder_agent = Tier2ResponderAgent()

@@ -7,7 +7,7 @@ import hashlib
 import json
 from pathlib import Path
 from typing import Dict, Any, Optional, Tuple, List
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from enum import Enum
 
 from server.config import settings
@@ -15,7 +15,7 @@ from server.db.async_db import async_db
 
 class SafetyTier(str, Enum):
     TIER_1_SAFE = "tier_1_safe"            # Read-only, queries, informational lookups
-    TIER_2_SENSITIVE = "tier_2_sensitive"  # Non-destructive changes (launch app, volume, add note)
+    TIER_2_SENSITIVE = "tier_2_sensitive"  # Non-destructive changes (launch app, volume, create note, sandboxed code write)
     TIER_3_DANGEROUS = "tier_3_dangerous"  # Potentially destructive (file delete, kill proc, shell execution, isolation)
     BLOCKED = "blocked"                    # Malicious or fatal commands (always rejected)
 
@@ -23,6 +23,7 @@ class ApprovalStatus(str, Enum):
     PENDING = "pending"
     APPROVED = "approved"
     REJECTED = "rejected"
+    MODIFIED = "modified"
     EXPIRED = "expired"
     AUTO_EXECUTED = "auto_executed"
 
@@ -33,22 +34,28 @@ class GuardrailRequest(BaseModel):
     action_name: str
     description: str
     details: Dict[str, Any]
+    target_resource: Optional[str] = None
+    risk_level: str = "HIGH"  # SAFE | LOW | MEDIUM | HIGH | CRITICAL
+    expected_impact: Optional[str] = None
+    rollback_plan: Optional[str] = None
     status: ApprovalStatus = ApprovalStatus.PENDING
-    created_at: float = 0.0
+    created_at: float = Field(default_factory=time.time)
     timeout_seconds: int = 90
     reason: Optional[str] = None
     approver: Optional[str] = None
     requires_dual_approval: bool = False
     first_approver: Optional[str] = None
+    modified_params: Optional[Dict[str, Any]] = None
 
 class GuardrailEngine:
     """
     Enterprise Defense-in-Depth Security Guardrail Engine
     Features:
-    - 3-Tier Granular Action Gate & Dual Approval Policy
+    - 4-Tier Granular Action Gate & Dual Approval Policy
     - Adversarial Prompt Injection & Jailbreak Sanitization
     - Python AST Syntax & Low-Level Exploit Inspection
     - Path Traversal & Critical Process Protection Allowlist
+    - Dynamic Admin Action Modification Support
     - Cryptographically Hashed Tamper-Evident SHA-256 Audit Ledger
     """
     def __init__(self, strictness: str = "strict"):
@@ -136,7 +143,6 @@ class GuardrailEngine:
                     if node.module in ["ctypes", "_winapi", "win32api", "win32con"]:
                         return False, f"Unauthorized low-level module import: {node.module}"
                 elif isinstance(node, ast.Call):
-                    # Check for eval() or exec() calls
                     if isinstance(node.func, ast.Name) and node.func.id in ["eval", "exec", "__import__"]:
                         return False, f"Dynamic code execution '{node.func.id}()' is forbidden in sandboxed scripts."
             return True, "AST Validation Passed"
@@ -188,14 +194,14 @@ class GuardrailEngine:
                 return SafetyTier.BLOCKED, msg
 
         # 3. File Operations Path Validation
-        if action_name in ["write_code_file", "read_code_file", "delete_file"]:
+        if action_name in ["write_code_file", "read_code_file", "modify_code_file", "delete_file"]:
             filename = params.get("filename") or params.get("path")
             if filename:
                 is_valid, msg = self.validate_file_path(filename)
                 if not is_valid:
                     return SafetyTier.BLOCKED, msg
 
-        # 4. Tier 3 Dangerous Actions
+        # 4. Tier 3 Dangerous Actions (Requires Admin Approval)
         if action_name in ["execute_shell_command", "run_terminal_command"]:
             cmd = params.get("command") or params.get("code") or ""
             for pattern in self.dangerous_patterns:
@@ -205,6 +211,9 @@ class GuardrailEngine:
                 return SafetyTier.TIER_3_DANGEROUS, f"Terminal command execution requested: {cmd[:60]}"
             return SafetyTier.TIER_2_SENSITIVE, "Terminal command execution"
 
+        if action_name in ["delete_file", "remove_directory", "kill_process", "wipe_database", "isolate_endpoint"]:
+            return SafetyTier.TIER_3_DANGEROUS, f"Destructive operation '{action_name}'"
+
         if action_name == "execute_python_code":
             code = params.get("code") or ""
             for pattern in self.dangerous_patterns:
@@ -212,26 +221,32 @@ class GuardrailEngine:
                     return SafetyTier.TIER_3_DANGEROUS, f"Code contains high-risk pattern: {code[:60]}"
             return SafetyTier.TIER_2_SENSITIVE, "Sandboxed Python execution"
 
-        if action_name in ["delete_file", "remove_directory", "kill_process", "wipe_database", "isolate_endpoint"]:
-            return SafetyTier.TIER_3_DANGEROUS, f"Destructive operation '{action_name}'"
+        # 5. Tier 2 Sensitive Actions (Auto-executed with Audit)
+        if action_name in [
+            "launch_application", "set_system_volume", "set_screen_brightness",
+            "create_note", "delete_note", "update_note", "add_reminder", "delete_reminder",
+            "create_calendar_event", "play_music", "play_youtube", "block_firewall_ioc",
+            "write_code_file", "modify_code_file", "git_commit"
+        ]:
+            return SafetyTier.TIER_2_SENSITIVE, f"System modification / safe write: {action_name}"
 
-        # 5. Tier 2 Sensitive Actions
-        if action_name in ["launch_application", "set_system_volume", "set_screen_brightness", "create_note", "delete_note", "add_reminder", "play_music", "block_firewall_ioc"]:
-            return SafetyTier.TIER_2_SENSITIVE, f"System modification: {action_name}"
+        # 6. Tier 1 Safe Actions (Read-Only)
+        return SafetyTier.TIER_1_SAFE, f"Read-only query or analysis: {action_name}"
 
-        # 6. Tier 1 Safe Actions
-        return SafetyTier.TIER_1_SAFE, f"Read-only or safe query: {action_name}"
-
-    async def verify_and_authorize(self, agent_name: str, action_name: str, params: Dict[str, Any], description: str) -> Tuple[bool, str, Optional[str]]:
+    async def verify_and_authorize(
+        self,
+        agent_name: str,
+        action_name: str,
+        params: Dict[str, Any],
+        description: str
+    ) -> Tuple[bool, str, Optional[str]]:
         """
         Evaluates action through guardrail tiers and executes human-in-the-loop interlock if dangerous.
         Returns: (is_allowed: bool, reason: str, action_id: Optional[str])
         """
         tier, reason = self.classify_action(agent_name, action_name, params)
         requires_dual = (action_name in ["isolate_endpoint", "wipe_database"] and settings.DUAL_APPROVAL_REQUIRED_TIER3)
-        action_id = f"ACT-{uuid.uuid4().hex}"
-
-
+        action_id = f"ACT-{uuid.uuid4().hex[:12].upper()}"
 
         # 1. BLOCKED
         if tier == SafetyTier.BLOCKED:
@@ -249,6 +264,7 @@ class GuardrailEngine:
             return True, "Authorized (Sensitive Operation Logged)", action_id
 
         # 4. TIER 3 - DANGEROUS (Requires Human Confirmation)
+        target_res = params.get("filename") or params.get("process_name") or params.get("hostname") or params.get("command") or str(params)[:50]
         req = GuardrailRequest(
             action_id=action_id,
             tier=tier,
@@ -256,6 +272,9 @@ class GuardrailEngine:
             action_name=action_name,
             description=description or reason,
             details=params,
+            target_resource=str(target_res),
+            risk_level="CRITICAL" if requires_dual else "HIGH",
+            expected_impact=f"Execute {action_name} on target {target_res}",
             created_at=time.time(),
             timeout_seconds=settings.APPROVAL_TIMEOUT_SECONDS,
             reason=reason,
@@ -274,11 +293,11 @@ class GuardrailEngine:
             if approved:
                 req.status = ApprovalStatus.APPROVED
                 await self._record_audit_log(action_id, req.approver or "OPERATOR", agent_name, action_name, str(params), params, tier, ApprovalStatus.APPROVED, "Authorized by user")
-                return True, "Action authorized by user.", action_id
+                return True, "Action authorized by administrator.", action_id
             else:
                 req.status = ApprovalStatus.REJECTED
                 await self._record_audit_log(action_id, req.approver or "OPERATOR", agent_name, action_name, str(params), params, tier, ApprovalStatus.REJECTED, "Denied by user")
-                return False, "Action explicitly denied by user.", action_id
+                return False, "Action explicitly denied by administrator.", action_id
         except asyncio.TimeoutError:
             req.status = ApprovalStatus.EXPIRED
             await self._record_audit_log(action_id, "SYSTEM_TIMEOUT", agent_name, action_name, str(params), params, tier, ApprovalStatus.EXPIRED, "Confirmation Timeout")
@@ -286,11 +305,22 @@ class GuardrailEngine:
             self.futures.pop(action_id, None)
             return False, "Security confirmation timed out. Action aborted.", action_id
 
-    def resolve_action(self, action_id: str, approved: bool, approver: str = "OPERATOR") -> bool:
-        """Called by WebSocket or REST endpoint when user clicks Approve/Deny"""
+    def resolve_action(
+        self,
+        action_id: str,
+        approved: bool,
+        approver: str = "OPERATOR",
+        modified_params: Optional[Dict[str, Any]] = None
+    ) -> bool:
+        """Called by WebSocket or REST endpoint when user clicks Approve/Deny/Modify"""
         req = self.pending_approvals.get(action_id)
         if not req:
             return False
+
+        if modified_params:
+            req.modified_params = modified_params
+            req.details = modified_params
+            req.status = ApprovalStatus.MODIFIED
 
         if req.requires_dual_approval and approved:
             if not req.first_approver:
@@ -298,7 +328,6 @@ class GuardrailEngine:
                 req.reason = f"Primary approval by {approver}. Dual confirmation required."
                 return True
             elif req.first_approver == approver:
-                # Same operator cannot provide dual approval
                 return True
 
         req.approver = approver
@@ -323,7 +352,18 @@ class GuardrailEngine:
         """Returns list of currently pending guardrail confirmations"""
         return [req.model_dump() for req in self.pending_approvals.values()]
 
-    async def _record_audit_log(self, action_id: str, actor: str, agent_name: str, action_name: str, target: str, details: Dict[str, Any], tier: SafetyTier, status: ApprovalStatus, reason: str):
+    async def _record_audit_log(
+        self,
+        action_id: str,
+        actor: str,
+        agent_name: str,
+        action_name: str,
+        target: str,
+        details: Dict[str, Any],
+        tier: SafetyTier,
+        status: ApprovalStatus,
+        reason: str
+    ):
         """Calculates cryptographic SHA-256 hash chaining and stores immutable ledger entry in SQLite."""
         async with self._lock:
             now = time.time()
@@ -353,3 +393,4 @@ class GuardrailEngine:
                 print(f"[GuardrailEngine] Error writing audit log: {e}")
 
 guardrail_engine = GuardrailEngine(strictness=settings.GUARDRAIL_STRICTNESS)
+

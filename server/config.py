@@ -26,10 +26,12 @@ class Settings:
         ).split(",") if origin.strip()
     ]
     
-    # Gemini API Key & Models
+    # Gemini API Key & Models (Active Models)
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
-    LIVE_MODEL: str = os.getenv("JARVIS_LIVE_MODEL", "gemini-3.1-flash-live-preview")
-    TEXT_MODEL: str = os.getenv("JARVIS_TEXT_MODEL", "gemini-2.5-flash")
+    LIVE_MODEL: str = os.getenv("JARVIS_LIVE_MODEL", "gemini-3.1-flash-lite-preview")
+    TEXT_MODEL: str = os.getenv("JARVIS_TEXT_MODEL", "gemini-3.1-flash-lite-preview")
+    PRO_MODEL: str = os.getenv("JARVIS_PRO_MODEL", "gemini-3.1-flash-lite-preview")
+    FAST_MODEL: str = os.getenv("JARVIS_FAST_MODEL", "gemini-3.1-flash-lite-preview")
     
     # TTS Settings
     TTS_VOICE: str = os.getenv("JARVIS_TTS_VOICE", "en-GB-RyanNeural")  # Sophisticated British / JARVIS accent

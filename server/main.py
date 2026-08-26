@@ -62,23 +62,38 @@ async def verify_auth_header(
 class ConnectionManager:
     def __init__(self):
         self.active_connections: Set[WebSocket] = set()
+        self.locks: Dict[WebSocket, asyncio.Lock] = {}
 
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
         self.active_connections.add(websocket)
+        self.locks[websocket] = asyncio.Lock()
 
     def disconnect(self, websocket: WebSocket):
         self.active_connections.discard(websocket)
+        self.locks.pop(websocket, None)
+
+    async def send_json_safe(self, websocket: WebSocket, message: dict) -> bool:
+        """Coroutine-safe WebSocket JSON transmission protected by per-socket lock"""
+        if websocket not in self.active_connections:
+            return False
+        lock = self.locks.get(websocket)
+        if not lock:
+            lock = asyncio.Lock()
+            self.locks[websocket] = lock
+        try:
+            async with lock:
+                await websocket.send_json(message)
+            return True
+        except Exception:
+            self.disconnect(websocket)
+            return False
 
     async def broadcast(self, message: dict):
-        dead = []
-        for ws in self.active_connections:
-            try:
-                await ws.send_json(message)
-            except Exception:
-                dead.append(ws)
-        for ws in dead:
-            self.active_connections.discard(ws)
+        """Broadcasts payload safely across all active connections"""
+        connections = list(self.active_connections)
+        for ws in connections:
+            await self.send_json_safe(ws, message)
 
 manager = ConnectionManager()
 
@@ -132,7 +147,7 @@ async def websocket_live_endpoint(websocket: WebSocket, token: Optional[str] = Q
     
     # Send initial handshake with SOC state
     vitals_init = await asyncio.to_thread(system_agent.get_system_vitals)
-    await websocket.send_json({
+    await manager.send_json_safe(websocket, {
         "type": "handshake",
         "status": "online",
         "version": settings.VERSION,
@@ -153,7 +168,7 @@ async def websocket_live_endpoint(websocket: WebSocket, token: Optional[str] = Q
                 if not text.strip():
                     continue
 
-                await websocket.send_json({
+                await manager.send_json_safe(websocket, {
                     "type": "jarvis_state",
                     "state": "thinking",
                     "user_text": text
@@ -161,7 +176,7 @@ async def websocket_live_endpoint(websocket: WebSocket, token: Optional[str] = Q
 
                 # Thought streaming callback
                 def on_thought(thought):
-                    asyncio.create_task(websocket.send_json({
+                    asyncio.create_task(manager.send_json_safe(websocket, {
                         "type": "agent_thought",
                         "thought": thought.model_dump()
                     }))
@@ -173,7 +188,7 @@ async def websocket_live_endpoint(websocket: WebSocket, token: Optional[str] = Q
                 )
                 response_text = result.get("text", "")
 
-                await websocket.send_json({
+                await manager.send_json_safe(websocket, {
                     "type": "jarvis_state",
                     "state": "speaking",
                     "response_text": response_text,
@@ -185,7 +200,7 @@ async def websocket_live_endpoint(websocket: WebSocket, token: Optional[str] = Q
 
                 try:
                     audio_b64 = await voice_engine.synthesize_speech_base64(response_text)
-                    await websocket.send_json({
+                    await manager.send_json_safe(websocket, {
                         "type": "audio_payload",
                         "audio_base64": audio_b64,
                         "text": response_text,
@@ -193,15 +208,16 @@ async def websocket_live_endpoint(websocket: WebSocket, token: Optional[str] = Q
                     })
                 except Exception as audio_err:
                     print("TTS Synthesis error:", audio_err)
-
-                await websocket.send_json({
-                    "type": "jarvis_state",
-                    "state": "idle"
-                })
+                    await manager.send_json_safe(websocket, {
+                        "type": "audio_payload",
+                        "audio_base64": None,
+                        "text": response_text,
+                        "agent_used": result.get("agent_used")
+                    })
 
             # 2. Interruption event
             elif event_type == "interrupt":
-                await websocket.send_json({
+                await manager.send_json_safe(websocket, {
                     "type": "interrupted",
                     "message": "Speech playback halted immediately."
                 })
@@ -212,7 +228,7 @@ async def websocket_live_endpoint(websocket: WebSocket, token: Optional[str] = Q
                 approved = data.get("approved", False)
                 approver = data.get("approver", "HUD_OPERATOR")
                 success = guardrail_engine.resolve_action(action_id, approved, approver=approver)
-                await websocket.send_json({
+                await manager.send_json_safe(websocket, {
                     "type": "guardrail_resolved",
                     "action_id": action_id,
                     "approved": approved,
@@ -232,14 +248,14 @@ async def websocket_live_endpoint(websocket: WebSocket, token: Optional[str] = Q
                 else:
                     soc_guardrail_engine.reject_action(action_id, approver=approver)
 
-                await websocket.send_json({
+                await manager.send_json_safe(websocket, {
                     "type": "soc_containment_resolved",
                     "action_id": action_id,
                     "approved": approved
                 })
 
             elif event_type == "ping":
-                await websocket.send_json({"type": "pong", "timestamp": time.time()})
+                await manager.send_json_safe(websocket, {"type": "pong", "timestamp": time.time()})
 
     except WebSocketDisconnect:
         manager.disconnect(websocket)
@@ -336,6 +352,10 @@ def get_soc_state_endpoint():
         "enabled": soc_orchestrator.is_monitoring_active,
         "status": "ACTIVE" if soc_orchestrator.is_monitoring_active else "STANDBY"
     }
+
+@app.get("/api/soc/fleet", dependencies=[Depends(verify_auth_header)])
+def get_soc_fleet_endpoint():
+    return soc_orchestrator.get_soc_fleet_status()
 
 class SocToggleRequest(BaseModel):
     enabled: Optional[bool] = None

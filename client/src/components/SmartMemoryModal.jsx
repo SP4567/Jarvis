@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Database, Plus, Trash2, Search, Brain, History, Sparkles, X, ShieldCheck } from 'lucide-react';
 
 export default function SmartMemoryModal({ isOpen, onClose }) {
-  const [activeTab, setActiveTab] = useState('FACTS'); // 'FACTS' | 'ACTIONS'
+  const [activeTab, setActiveTab] = useState('FACTS');
   const [facts, setFacts] = useState([]);
   const [actions, setActions] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -92,211 +92,165 @@ export default function SmartMemoryModal({ isOpen, onClose }) {
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fade-in">
-      <div className="w-full max-w-4xl bg-slate-900 border border-cyan-500/40 rounded-xl shadow-[0_0_50px_rgba(6,182,212,0.15)] flex flex-col max-h-[85vh] overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+      <div className="w-full max-w-4xl bg-slate-900 border border-slate-800 rounded-xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-cyan-500/20 bg-slate-950/60">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
-              <Brain className="w-6 h-6 animate-pulse" />
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-800 bg-slate-950/80">
+          <div className="flex items-center gap-2.5">
+            <div className="p-1.5 rounded-lg bg-slate-800 text-sky-400">
+              <Brain size={16} />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-cyan-300 tracking-wider flex items-center gap-2">
+              <h2 className="text-sm font-bold text-slate-100 font-mono tracking-wider">
                 SMART MEMORY MATRIX
-                <span className="text-xs px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 font-mono">
-                  v2.0 ACTIVE
-                </span>
               </h2>
-              <p className="text-xs text-slate-400 font-mono">Multi-Tier Permanent Semantic Facts & Episodic Action Logs</p>
+              <p className="text-[10px] text-slate-400 font-mono">
+                Long-Term Semantic & Episodic Knowledge Graph
+              </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
+            className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
           >
-            <X className="w-5 h-5" />
+            <X size={16} />
           </button>
         </div>
 
-        {/* Tabs & Search */}
-        <div className="flex items-center justify-between px-6 py-3 border-b border-slate-800 bg-slate-900/40">
-          <div className="flex gap-2">
+        {/* Tab Selector & Search */}
+        <div className="flex items-center justify-between px-5 py-2.5 bg-slate-950/40 border-b border-slate-800 gap-4">
+          <div className="flex items-center gap-1 text-xs font-mono">
             <button
               onClick={() => setActiveTab('FACTS')}
-              className={`px-4 py-1.5 rounded-lg text-xs font-mono font-semibold flex items-center gap-2 transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors ${
                 activeTab === 'FACTS'
-                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-[0_0_15px_rgba(6,182,212,0.2)]'
-                  : 'text-slate-400 hover:text-slate-200 border border-transparent'
+                  ? 'bg-slate-800 text-white font-semibold'
+                  : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              <Database className="w-3.5 h-3.5" />
-              SEMANTIC FACTS ({facts.length})
+              <Database size={13} />
+              <span>Declarative Facts ({facts.length})</span>
             </button>
             <button
               onClick={() => setActiveTab('ACTIONS')}
-              className={`px-4 py-1.5 rounded-lg text-xs font-mono font-semibold flex items-center gap-2 transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors ${
                 activeTab === 'ACTIONS'
-                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-[0_0_15px_rgba(6,182,212,0.2)]'
-                  : 'text-slate-400 hover:text-slate-200 border border-transparent'
+                  ? 'bg-slate-800 text-white font-semibold'
+                  : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              <History className="w-3.5 h-3.5" />
-              EPISODIC AUDIT LOG ({actions.length})
+              <History size={13} />
+              <span>Episodic Log ({actions.length})</span>
             </button>
           </div>
 
-          {activeTab === 'FACTS' && (
-            <div className="relative w-64">
-              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search memory facts..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-700 rounded-lg pl-8 pr-3 py-1 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500 font-mono"
-              />
-            </div>
-          )}
+          <div className="relative w-64">
+            <Search size={13} className="absolute left-2.5 top-2.5 text-slate-500" />
+            <input
+              type="text"
+              placeholder="Search memory..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-7 pr-3 py-1 text-xs font-mono text-slate-200 placeholder-slate-500 focus:outline-none focus:border-slate-600"
+            />
+          </div>
         </div>
 
-        {/* Content Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
-          {activeTab === 'FACTS' ? (
+        {/* Modal Content */}
+        <div className="flex-1 overflow-y-auto p-5 font-mono text-xs space-y-4">
+          {activeTab === 'FACTS' && (
             <>
               {/* Add Fact Form */}
-              <form onSubmit={handleAddFact} className="bg-slate-950/60 border border-cyan-500/20 rounded-lg p-3 grid grid-cols-12 gap-2 items-center">
-                <div className="col-span-3">
-                  <input
-                    type="text"
-                    placeholder="Key (e.g. user_name)"
-                    value={newKey}
-                    onChange={(e) => setNewKey(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:border-cyan-500 font-mono focus:outline-none"
-                  />
+              <form onSubmit={handleAddFact} className="p-3 bg-slate-950/80 border border-slate-800 rounded-lg space-y-2">
+                <div className="text-[10px] text-slate-400 uppercase font-bold tracking-wider flex items-center gap-1">
+                  <Plus size={11} className="text-sky-400" />
+                  <span>Teach J.A.R.V.I.S. New Fact:</span>
                 </div>
-                <div className="col-span-5">
-                  <input
-                    type="text"
-                    placeholder="Value (e.g. Suyash Pandey)"
-                    value={newValue}
-                    onChange={(e) => setNewValue(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:border-cyan-500 font-mono focus:outline-none"
-                  />
-                </div>
-                <div className="col-span-2">
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-2">
                   <select
                     value={newCategory}
                     onChange={(e) => setNewCategory(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-xs text-slate-300 font-mono focus:outline-none focus:border-cyan-500"
+                    className="md:col-span-3 bg-slate-900 border border-slate-800 rounded p-1.5 text-slate-200 text-xs focus:outline-none focus:border-slate-600"
                   >
-                    <option value="identity">Identity</option>
-                    <option value="user_preference">Preference</option>
-                    <option value="project">Project</option>
-                    <option value="system">System</option>
+                    <option value="user_preference">User Preference</option>
+                    <option value="system_setting">System Setting</option>
+                    <option value="domain_knowledge">Domain Knowledge</option>
                   </select>
-                </div>
-                <div className="col-span-2">
+                  <input
+                    type="text"
+                    placeholder="Key (e.g., user_name, project_lead)"
+                    value={newKey}
+                    onChange={(e) => setNewKey(e.target.value)}
+                    className="md:col-span-4 bg-slate-900 border border-slate-800 rounded p-1.5 text-slate-200 text-xs focus:outline-none focus:border-slate-600"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Value (e.g., Suyash Pandey)"
+                    value={newValue}
+                    onChange={(e) => setNewValue(e.target.value)}
+                    className="md:col-span-4 bg-slate-900 border border-slate-800 rounded p-1.5 text-slate-200 text-xs focus:outline-none focus:border-slate-600"
+                  />
                   <button
                     type="submit"
-                    className="w-full bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs py-1.5 rounded flex items-center justify-center gap-1 transition-colors"
+                    className="md:col-span-1 bg-sky-600 hover:bg-sky-500 text-white rounded font-bold text-xs flex items-center justify-center transition-colors"
                   >
-                    <Plus className="w-3.5 h-3.5" />
-                    STORE
+                    <Plus size={14} />
                   </button>
                 </div>
               </form>
 
               {/* Facts Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {filteredFacts.map((fact) => (
-                  <div
-                    key={fact.id || fact.key}
-                    className="bg-slate-950/80 border border-slate-800 hover:border-cyan-500/40 rounded-lg p-3.5 flex flex-col justify-between transition-all group"
-                  >
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-mono font-bold text-cyan-400 uppercase tracking-wider">
-                          {fact.key}
-                        </span>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">
-                          {fact.category}
-                        </span>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                {filteredFacts.length === 0 ? (
+                  <div className="col-span-2 text-center py-8 text-slate-500">
+                    Zero declarative facts match your query.
+                  </div>
+                ) : (
+                  filteredFacts.map((fact) => (
+                    <div
+                      key={fact.key}
+                      className="p-3 bg-slate-950/80 border border-slate-800 rounded-lg flex items-center justify-between group hover:border-slate-700 transition-colors"
+                    >
+                      <div>
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <span className="px-1.5 py-0.2 rounded bg-slate-900 text-slate-400 text-[9px] border border-slate-800">
+                            {fact.category}
+                          </span>
+                          <span className="font-bold text-slate-200">{fact.key}</span>
+                        </div>
+                        <p className="text-slate-300 text-[11px]">{fact.value}</p>
                       </div>
-                      <p className="text-xs text-slate-200 font-mono break-words">{fact.value}</p>
-                    </div>
-                    <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-900 text-[10px] text-slate-500 font-mono">
-                      <span>Hits: {fact.access_count || 1}</span>
                       <button
                         onClick={() => handleDeleteFact(fact.key)}
-                        className="text-slate-600 hover:text-red-400 transition-colors p-1 rounded"
+                        className="opacity-0 group-hover:opacity-100 p-1 text-slate-500 hover:text-rose-400 transition-opacity"
                         title="Delete fact"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Trash2 size={13} />
                       </button>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
-
-              {filteredFacts.length === 0 && (
-                <div className="text-center py-10 text-slate-500 text-xs font-mono">
-                  No memory facts found matching your search.
-                </div>
-              )}
             </>
-          ) : (
-            /* Episodic Actions Table */
+          )}
+
+          {activeTab === 'ACTIONS' && (
             <div className="space-y-2">
-              {actions.map((act, idx) => (
-                <div
-                  key={idx}
-                  className="bg-slate-950 border border-slate-800/80 rounded-lg p-3 flex items-center justify-between text-xs font-mono hover:border-slate-700 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="p-1.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                      <ShieldCheck className="w-4 h-4" />
+              {actions.length === 0 ? (
+                <div className="text-center py-8 text-slate-500">Zero episodic memories logged yet.</div>
+              ) : (
+                actions.map((act) => (
+                  <div key={act.action_id} className="p-2.5 bg-slate-950/80 border border-slate-800 rounded-lg space-y-1">
+                    <div className="flex items-center justify-between text-[10px] text-slate-400">
+                      <span className="font-bold text-slate-300">{act.agent_name} // {act.action_type}</span>
+                      <span>{act.timestamp?.slice(0, 19)}</span>
                     </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-slate-200">{act.tool_name}</span>
-                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-cyan-400">
-                          {act.agent_name}
-                        </span>
-                        <span className="text-[10px] text-slate-500">
-                          {new Date(act.timestamp * 1000).toLocaleTimeString()}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-400 truncate max-w-lg mt-0.5">
-                        Params: {act.params}
-                      </p>
-                    </div>
+                    <p className="text-slate-300 text-[11px]">Command: "{act.user_command}"</p>
                   </div>
-                  <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold">
-                    {act.status || 'SUCCESS'}
-                  </span>
-                </div>
-              ))}
-              {actions.length === 0 && (
-                <div className="text-center py-10 text-slate-500 text-xs font-mono">
-                  No episodic actions recorded yet.
-                </div>
+                ))
               )}
             </div>
           )}
-        </div>
-
-        {/* Footer */}
-        <div className="px-6 py-3 border-t border-slate-800 bg-slate-950/60 flex items-center justify-between text-xs font-mono text-slate-500">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-            Auto-extracts facts from natural voice utterances (e.g. "Remember my name is Suyash")
-          </div>
-          <button
-            onClick={onClose}
-            className="px-4 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-mono font-bold transition-colors"
-          >
-            CLOSE
-          </button>
         </div>
       </div>
     </div>

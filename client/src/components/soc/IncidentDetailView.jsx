@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { 
   ShieldAlert, 
   Activity, 
   Clock, 
   Server, 
   User, 
-  CheckCircle, 
+  CheckCircle2, 
   AlertCircle, 
   Code, 
   Terminal, 
@@ -13,76 +13,95 @@ import {
   XOctagon, 
   RotateCcw,
   Sparkles,
-  Info
+  Info,
+  Check,
+  X,
+  FileText,
+  Layers,
+  Cpu,
+  Globe,
+  Database,
+  Lock,
+  Compass
 } from 'lucide-react';
+
+const SEVERITY_BADGES = {
+  P0: "bg-rose-500/15 text-rose-400 border border-rose-500/30",
+  P1: "bg-orange-500/15 text-orange-400 border border-orange-500/30",
+  P2: "bg-amber-500/15 text-amber-400 border border-amber-500/30",
+  P3: "bg-sky-500/15 text-sky-400 border border-sky-500/30",
+  P4: "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+};
 
 export default function IncidentDetailView({ 
   caseData, 
   onResolveAction,
   onRollbackAction 
 }) {
-  const [activeTab, setActiveTab] = useState('EXPLAINABILITY'); // EXPLAINABILITY | TIMELINE | CONTAINMENT | RULES
+  const [activeTab, setActiveTab] = useState('EXPLAINABILITY');
 
   if (!caseData) {
     return (
-      <div className="glass-panel rounded-xl p-8 border border-cyan-500/20 flex flex-col items-center justify-center h-[520px] text-center">
-        <Activity size={32} className="text-cyan-400 mb-3 animate-pulse opacity-60" />
-        <h3 className="text-sm font-mono font-bold text-slate-300">NO INCIDENT SELECTED</h3>
-        <p className="text-xs font-mono text-slate-500 mt-1">Select an incident case from the queue to inspect deep forensics.</p>
+      <div className="bg-slate-900/95 rounded-xl border border-slate-800 p-8 flex flex-col items-center justify-center h-[540px] text-center shadow-xl">
+        <Activity size={28} className="text-slate-500 mb-2 opacity-60 animate-pulse" />
+        <h3 className="text-xs font-mono font-bold text-slate-300">NO INCIDENT SELECTED</h3>
+        <p className="text-[11px] font-mono text-slate-500 mt-1">Select an active security case from the triage queue to inspect full telemetry.</p>
       </div>
     );
   }
 
   const exp = caseData.explainability;
-  const host = caseData.initial_alert.affected_assets[0]?.hostname || "UNKNOWN_HOST";
-  const user = caseData.initial_alert.affected_identities[0] || "SYSTEM";
+  const host = caseData.affected_assets?.[0]?.hostname || caseData.initial_alert?.affected_assets?.[0]?.hostname || "CORP-HOST";
+  const user = caseData.affected_users?.[0] || caseData.affected_identities?.[0] || caseData.initial_alert?.affected_identities?.[0] || "SYSTEM";
+  const agentFindings = caseData.agent_findings || {};
+  const findingsList = Object.values(agentFindings);
 
   return (
-    <div className="glass-panel rounded-xl p-4 border border-cyan-500/30 flex flex-col h-[520px] overflow-hidden">
-      <div className="tech-corner-tl" />
-      <div className="tech-corner-tr" />
-      <div className="tech-corner-bl" />
-      <div className="tech-corner-br" />
-
-      {/* Case Title Bar */}
-      <div className="flex items-center justify-between pb-3 border-b border-cyan-500/20 mb-3">
+    <div className="bg-slate-900/95 rounded-xl border border-slate-800 flex flex-col h-[540px] shadow-xl overflow-hidden">
+      {/* Incident Case Header Bar */}
+      <div className="p-3.5 border-b border-slate-800 bg-slate-950/70 flex items-center justify-between">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-600 text-white">
+          <div className="flex items-center gap-2 mb-1">
+            <span className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-bold ${SEVERITY_BADGES[caseData.severity] || SEVERITY_BADGES.P3}`}>
               {caseData.severity}
             </span>
-            <span className="text-xs font-mono font-bold text-cyan-300">{caseData.case_id}</span>
-            <span className="text-xs font-mono text-slate-400">// {caseData.assigned_tier}</span>
+            <span className="text-xs font-mono font-bold text-slate-200">{caseData.case_id}</span>
+            <span className="text-[10px] font-mono text-slate-400">// {caseData.assigned_tier}</span>
+            <span className="text-[10px] font-mono text-slate-500">{caseData.created_at?.slice(0, 19)}</span>
           </div>
-          <h2 className="text-sm font-bold text-slate-100 mt-1 line-clamp-1">{caseData.title}</h2>
+          <h2 className="text-xs font-semibold text-slate-100 line-clamp-1">{caseData.title}</h2>
         </div>
 
         <div className="flex items-center gap-3">
           <div className="text-right font-mono">
-            <span className="text-[10px] text-slate-400 block">RISK RATING</span>
-            <span className="text-sm font-bold text-rose-400 glow-text-danger">{caseData.risk_score} / 100</span>
+            <span className="text-[9px] text-slate-400 uppercase font-semibold block">Risk Score</span>
+            <span className={`text-sm font-bold ${caseData.risk_score >= 80 ? 'text-rose-400' : caseData.risk_score >= 50 ? 'text-amber-400' : 'text-sky-400'}`}>
+              {caseData.risk_score} / 100
+            </span>
           </div>
-          <span className="px-2 py-1 rounded-md bg-slate-900 border border-cyan-500/30 text-xs font-mono uppercase text-cyan-300">
+          <span className="px-2.5 py-1 rounded bg-slate-800 border border-slate-700 text-[10px] font-mono uppercase font-bold text-slate-200">
             {caseData.status}
           </span>
         </div>
       </div>
 
-      {/* Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-800 pb-2 mb-3 text-xs font-mono">
+      {/* High-Density Navigation Tabs */}
+      <div className="flex items-center gap-1.5 px-3 pt-2 pb-1.5 border-b border-slate-800 bg-slate-950/40 text-[11px] font-mono overflow-x-auto">
         {[
           { id: 'EXPLAINABILITY', label: '8-Point Explainability' },
+          { id: 'AGENT_FINDINGS', label: `Agent Findings (${findingsList.length})` },
           { id: 'TIMELINE', label: `Timeline (${caseData.timeline?.length || 0})` },
           { id: 'CONTAINMENT', label: `Containment (${caseData.containment_actions?.length || 0})` },
-          { id: 'RULES', label: `Sigma Rules (${caseData.detection_rules?.length || 0})` }
+          { id: 'RULES', label: `Sigma Rules (${caseData.detection_rules?.length || 0})` },
+          { id: 'COMPLIANCE', label: `Compliance (${caseData.compliance_mappings?.length || 0})` }
         ].map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-3 py-1 rounded-lg transition-all ${
+            className={`px-2.5 py-1 rounded transition-colors whitespace-nowrap ${
               activeTab === tab.id
-                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-neon-cyan'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                ? 'bg-slate-800 text-white font-semibold shadow-sm'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-850'
             }`}
           >
             {tab.label}
@@ -91,151 +110,176 @@ export default function IncidentDetailView({
       </div>
 
       {/* Tab Content Area */}
-      <div className="flex-1 overflow-y-auto pr-1 text-xs font-mono space-y-3">
+      <div className="flex-1 overflow-y-auto p-3.5 space-y-3 text-[11px] font-mono">
         {/* 1. EXPLAINABILITY TAB */}
         {activeTab === 'EXPLAINABILITY' && exp && (
-          <div className="space-y-3">
-            <div className="p-3 rounded-lg bg-black/40 border border-cyan-500/20">
-              <span className="text-[10px] uppercase text-cyan-400 font-bold block mb-1">1. What Happened?</span>
-              <p className="text-slate-200 leading-relaxed">{exp.what_happened}</p>
+          <div className="space-y-2.5">
+            <div className="p-3 rounded-lg bg-slate-950/80 border border-slate-800">
+              <span className="text-[10px] uppercase text-sky-400 font-bold block mb-1">1. What Happened?</span>
+              <p className="text-slate-300 leading-relaxed">{exp.what_happened}</p>
             </div>
 
-            <div className="p-3 rounded-lg bg-black/40 border border-cyan-500/20">
-              <span className="text-[10px] uppercase text-amber-400 font-bold block mb-1">2. Concrete Supporting Evidence</span>
-              <ul className="list-disc list-inside space-y-1 text-slate-300">
-                {exp.supporting_evidence.map((ev, i) => (
-                  <li key={i} className="text-[11px]">{ev}</li>
+            <div className="p-3 rounded-lg bg-slate-950/80 border border-slate-800">
+              <span className="text-[10px] uppercase text-sky-400 font-bold block mb-1">2. Observed Evidence Chain</span>
+              <ul className="space-y-1 text-slate-300 list-disc list-inside">
+                {exp.supporting_evidence?.map((ev, i) => (
+                  <li key={i}>{ev}</li>
                 ))}
               </ul>
             </div>
 
-            <div className="p-3 rounded-lg bg-black/40 border border-cyan-500/20">
-              <span className="text-[10px] uppercase text-slate-400 font-bold block mb-1">3. Alternative Explanations Ruled Out</span>
-              <ul className="list-disc list-inside space-y-1 text-slate-400">
-                {exp.alternative_explanations_considered.map((alt, i) => (
-                  <li key={i} className="text-[11px]">{alt}</li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="p-3 rounded-lg bg-black/40 border border-cyan-500/20">
-                <span className="text-[10px] uppercase text-emerald-400 font-bold block mb-1">4. Confidence Model</span>
-                <p className="text-slate-300 text-[11px]">{exp.confidence_calculation}</p>
-              </div>
-
-              <div className="p-3 rounded-lg bg-black/40 border border-cyan-500/20">
-                <span className="text-[10px] uppercase text-cyan-400 font-bold block mb-1">5. MITRE ATT&CK Mapping</span>
-                <div className="space-y-1">
-                  {exp.mitre_techniques.map((mt, i) => (
-                    <span key={i} className="inline-block px-1.5 py-0.5 rounded bg-cyan-950/80 border border-cyan-500/30 text-[10px] text-cyan-300 mr-1">
-                      {mt}
-                    </span>
+            <div className="grid grid-cols-2 gap-2.5">
+              <div className="p-3 rounded-lg bg-slate-950/80 border border-slate-800">
+                <span className="text-[10px] uppercase text-sky-400 font-bold block mb-1">3. Ruled-Out Benign Hypotheses</span>
+                <ul className="space-y-1 text-slate-400">
+                  {exp.alternative_explanations_considered?.map((alt, i) => (
+                    <li key={i}>• {alt}</li>
                   ))}
-                </div>
+                </ul>
+              </div>
+              <div className="p-3 rounded-lg bg-slate-950/80 border border-slate-800">
+                <span className="text-[10px] uppercase text-sky-400 font-bold block mb-1">4. Confidence Model</span>
+                <p className="text-slate-300">{exp.confidence_calculation}</p>
               </div>
             </div>
 
-            <div className="p-3 rounded-lg bg-black/40 border border-cyan-500/20">
-              <span className="text-[10px] uppercase text-rose-400 font-bold block mb-1">6. Recommended Actions & Invalidation Conditions</span>
-              <ul className="list-disc list-inside space-y-1 text-slate-300 mb-2">
-                {exp.recommended_next_actions.map((rec, i) => (
-                  <li key={i} className="text-[11px]">{rec}</li>
+            <div className="p-3 rounded-lg bg-slate-950/80 border border-slate-800">
+              <span className="text-[10px] uppercase text-sky-400 font-bold block mb-1">5. MITRE ATT&CK Techniques</span>
+              <div className="flex flex-wrap gap-1.5 mt-1">
+                {exp.mitre_techniques?.map((m, i) => (
+                  <span key={i} className="px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-slate-300 text-[10px]">
+                    {m}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className="p-3 rounded-lg bg-slate-950/80 border border-slate-800">
+              <span className="text-[10px] uppercase text-sky-400 font-bold block mb-1">6. Recommended Next Actions</span>
+              <ul className="space-y-1 text-slate-300 list-disc list-inside">
+                {exp.recommended_next_actions?.map((act, i) => (
+                  <li key={i}>{act}</li>
                 ))}
               </ul>
-              <p className="text-[10px] text-slate-500 italic">Invalidation: {exp.invalidation_conditions}</p>
             </div>
           </div>
         )}
 
-        {/* 2. TIMELINE TAB */}
-        {activeTab === 'TIMELINE' && (
-          <div className="space-y-2 relative border-l-2 border-cyan-500/30 ml-3 pl-4">
-            {caseData.timeline.map((entry, idx) => (
-              <div key={idx} className="relative mb-3">
-                <span className="absolute -left-[23px] top-1 w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-neon-cyan" />
-                <div className="p-2.5 rounded-lg bg-black/50 border border-cyan-500/20">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] text-cyan-300 font-bold">{entry.source}</span>
-                    <span className="text-[9px] text-slate-500">{entry.timestamp}</span>
+        {/* 2. AGENT FINDINGS TAB */}
+        {activeTab === 'AGENT_FINDINGS' && (
+          <div className="space-y-2.5">
+            {findingsList.length === 0 ? (
+              <div className="text-center py-8 text-slate-500">No structured subagent findings logged yet.</div>
+            ) : (
+              findingsList.map((f, i) => (
+                <div key={i} className="p-3 rounded-lg bg-slate-950/80 border border-slate-800 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 font-bold text-[10px]">
+                        {f.role_title}
+                      </span>
+                      <span className="text-[10px] text-slate-500">[{f.agent_name}]</span>
+                    </div>
+                    <span className="text-[10px] text-emerald-400 font-semibold">
+                      Confidence: {Math.round(f.confidence * 100)}%
+                    </span>
                   </div>
-                  <p className="text-slate-200 text-xs">{entry.description}</p>
-                  <span className="text-[9px] text-slate-400 mt-1 block">Target: {entry.entity} // [{entry.provenance}]</span>
+                  <p className="text-slate-200 leading-relaxed text-[11px]">{f.summary}</p>
+                  {f.recommendations && f.recommendations.length > 0 && (
+                    <div className="pt-1 border-t border-slate-900 text-slate-400 text-[10px]">
+                      <span className="text-slate-500 font-bold uppercase">Recommendations:</span> {f.recommendations.join("; ")}
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
+        {/* 3. TIMELINE TAB */}
+        {activeTab === 'TIMELINE' && (
+          <div className="space-y-2">
+            {caseData.timeline?.map((item, idx) => (
+              <div key={idx} className="p-2.5 rounded bg-slate-950/70 border border-slate-800 flex items-start gap-3">
+                <div className="w-1.5 h-1.5 rounded-full bg-sky-400 mt-1.5 shrink-0" />
+                <div className="flex-1">
+                  <div className="flex items-center justify-between text-[10px] text-slate-400 mb-0.5">
+                    <span className="font-semibold text-slate-300">{item.source} // {item.entity}</span>
+                    <span>{item.timestamp}</span>
+                  </div>
+                  <p className="text-slate-200 leading-relaxed">{item.description}</p>
                 </div>
               </div>
             ))}
           </div>
         )}
 
-        {/* 3. CONTAINMENT ACTIONS TAB */}
+        {/* 4. CONTAINMENT TAB */}
         {activeTab === 'CONTAINMENT' && (
-          <div className="space-y-3">
-            {caseData.containment_actions.length === 0 ? (
-              <div className="text-center py-8 text-slate-500">Zero containment actions requested.</div>
+          <div className="space-y-2.5">
+            {caseData.containment_actions?.length === 0 ? (
+              <div className="text-center py-8 text-slate-500">Zero containment actions proposed for this case.</div>
             ) : (
-              caseData.containment_actions.map(action => {
-                const isPending = action.approval_status === 'PENDING';
-                const isExecuted = action.approval_status === 'APPROVED' || action.approval_status === 'AUTO_EXECUTED';
-                const isRolledBack = action.is_rolled_back;
-
+              caseData.containment_actions.map(act => {
+                const isPending = act.approval_status === "PENDING";
+                const isExecuted = act.approval_status === "APPROVED" || act.approval_status === "AUTO_EXECUTED";
+                
                 return (
-                  <div 
-                    key={action.action_id}
-                    className={`p-3 rounded-lg border ${
-                      isPending ? 'border-rose-500 bg-rose-950/30 shadow-neon-danger' : 'border-slate-800 bg-black/40'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-2">
+                  <div key={act.action_id} className="p-3 rounded-lg bg-slate-950/80 border border-slate-800 space-y-2">
+                    <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          action.risk_level === 'HIGH' ? 'bg-rose-600 text-white' : 'bg-amber-500 text-black'
+                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${
+                          act.risk_level === 'HIGH' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40' : 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
                         }`}>
-                          {action.risk_level} RISK
+                          {act.risk_level} RISK
                         </span>
-                        <span className="text-xs font-bold text-slate-200">{action.action_name}</span>
+                        <span className="font-bold text-slate-100">{act.action_name}</span>
+                        <span className="text-slate-500 text-[10px]">({act.action_id})</span>
                       </div>
-                      <span className="text-[10px] text-slate-400">{action.action_id}</span>
-                    </div>
 
-                    <p className="text-xs text-slate-300 mb-2">{action.reason}</p>
-                    <div className="text-[11px] text-slate-400 mb-2">
-                      <span className="text-amber-400">Impact:</span> {action.expected_impact}
-                    </div>
-
-                    {/* Action Controls */}
-                    <div className="flex items-center justify-between pt-2 border-t border-slate-800">
-                      <span className={`text-[10px] font-bold uppercase ${
-                        isPending ? 'text-rose-400 animate-pulse' : (isRolledBack ? 'text-slate-400' : 'text-emerald-400')
+                      <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
+                        isPending ? 'bg-amber-500/20 text-amber-300 animate-pulse' : isExecuted ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-800 text-slate-400'
                       }`}>
-                        STATUS: {action.approval_status}
+                        {act.approval_status}
                       </span>
-
-                      {isPending && (
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => onResolveAction(action.action_id, false)}
-                            className="px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 text-rose-300 text-xs font-bold border border-rose-500/40"
-                          >
-                            REJECT
-                          </button>
-                          <button
-                            onClick={() => onResolveAction(action.action_id, true)}
-                            className="px-3 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-black text-xs font-bold shadow-lg"
-                          >
-                            AUTHORIZE ACTION
-                          </button>
-                        </div>
-                      )}
-
-                      {isExecuted && !isRolledBack && (
-                        <button
-                          onClick={() => onRollbackAction(action.action_id)}
-                          className="flex items-center gap-1 px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 text-amber-300 text-[11px] border border-amber-500/40"
-                        >
-                          <RotateCcw size={11} /> ROLLBACK
-                        </button>
-                      )}
                     </div>
+
+                    <p className="text-slate-300 text-[11px]">{act.reason}</p>
+                    <div className="text-[10px] text-slate-400 bg-slate-900 p-2 rounded border border-slate-800">
+                      <span className="text-slate-500 block font-semibold uppercase">Expected Impact:</span>
+                      {act.expected_impact}
+                    </div>
+
+                    {isPending && onResolveAction && (
+                      <div className="flex items-center gap-2 pt-2 border-t border-slate-800">
+                        <button
+                          onClick={() => onResolveAction(act.action_id, true)}
+                          className="flex items-center gap-1 px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[11px] font-semibold transition-colors"
+                        >
+                          <Check size={12} />
+                          APPROVE & EXECUTE
+                        </button>
+                        <button
+                          onClick={() => onResolveAction(act.action_id, false)}
+                          className="flex items-center gap-1 px-3 py-1 bg-rose-600/80 hover:bg-rose-600 text-white rounded text-[11px] font-semibold transition-colors"
+                        >
+                          <X size={12} />
+                          REJECT
+                        </button>
+                      </div>
+                    )}
+
+                    {isExecuted && onRollbackAction && !act.is_rolled_back && (
+                      <div className="pt-2 border-t border-slate-800">
+                        <button
+                          onClick={() => onRollbackAction(act.action_id)}
+                          className="flex items-center gap-1 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[10px] transition-colors"
+                        >
+                          <RotateCcw size={11} />
+                          ROLLBACK CONTAINMENT ACTION
+                        </button>
+                      </div>
+                    )}
                   </div>
                 );
               })
@@ -243,24 +287,49 @@ export default function IncidentDetailView({
           </div>
         )}
 
-        {/* 4. SIGMA DETECTION RULES TAB */}
+        {/* 5. DETECTION RULES TAB */}
         {activeTab === 'RULES' && (
-          <div className="space-y-3">
-            {caseData.detection_rules.length === 0 ? (
-              <div className="text-center py-8 text-slate-500">Zero synthesized detection rules for this case.</div>
+          <div className="space-y-2.5">
+            {caseData.detection_rules?.length === 0 ? (
+              <div className="text-center py-8 text-slate-500">No detection rules synthesized for this case yet.</div>
             ) : (
               caseData.detection_rules.map(rule => (
-                <div key={rule.rule_id} className="p-3 rounded-lg bg-black/60 border border-cyan-500/30">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <Code size={14} className="text-cyan-400" />
-                      <span className="text-xs font-bold text-cyan-300">{rule.title}</span>
-                    </div>
-                    <span className="text-[10px] font-mono text-slate-400">{rule.rule_id}</span>
+                <div key={rule.rule_id} className="p-3 rounded-lg bg-slate-950/80 border border-slate-800 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-100">{rule.title}</span>
+                    <span className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 text-[9px] font-bold">
+                      {rule.rule_type}
+                    </span>
                   </div>
-                  <pre className="p-2 rounded bg-slate-950 border border-slate-800 text-[11px] text-cyan-200 overflow-x-auto">
+                  <pre className="p-2.5 rounded bg-slate-900 text-slate-300 text-[10px] overflow-x-auto leading-relaxed border border-slate-850">
                     {rule.rule_content}
                   </pre>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
+        {/* 6. COMPLIANCE TAB */}
+        {activeTab === 'COMPLIANCE' && (
+          <div className="space-y-2">
+            {caseData.compliance_mappings?.length === 0 ? (
+              <div className="text-center py-8 text-slate-500">Compliance control mapping nominal.</div>
+            ) : (
+              caseData.compliance_mappings.map((c, i) => (
+                <div key={i} className="p-2.5 rounded bg-slate-950/80 border border-slate-800 flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 text-[9px] font-bold">
+                        {c.framework}
+                      </span>
+                      <span className="font-bold text-slate-200">{c.control_id} - {c.control_name}</span>
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-0.5">{c.justification}</p>
+                  </div>
+                  <span className="px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-300 border border-emerald-800/40 text-[9px] font-bold">
+                    {c.status}
+                  </span>
                 </div>
               ))
             )}

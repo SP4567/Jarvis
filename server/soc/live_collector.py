@@ -107,6 +107,8 @@ class LiveHostSecurityCollector:
 
         return conns[:limit]
 
+    get_active_network_connections = get_live_network_connections
+
     def get_listening_ports(self) -> List[Dict[str, Any]]:
         """Filters active listening ports on the host"""
         all_conns = self.get_live_network_connections(limit=250)

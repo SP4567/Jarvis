@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { Shield, Sparkles, Activity, Settings, Radio, Volume2, ShieldAlert, Layers, Power, Brain, Cpu } from 'lucide-react';
 import ArcReactor from './components/ArcReactor';
 import VoiceController from './components/VoiceController';
@@ -47,7 +47,7 @@ export default function App() {
       ws.onopen = () => {
         setIsConnected(true);
         playWakeSound();
-        addLogMessage('assistant', 'J.A.R.V.I.S. Core Online. Autonomous SOC Security Matrix & Subagent protocols fully initialized, Sir.');
+        addLogMessage('assistant', 'J.A.R.V.I.S. Core Online. Autonomous SecOps Matrix & Subagent protocols fully initialized, Sir.');
       };
 
       ws.onmessage = (event) => {
@@ -96,7 +96,7 @@ export default function App() {
               }
             }
           } else if (data.type === 'audio_payload') {
-            playAudioPayload(data.audio_base64);
+            playAudioPayload(data.audio_base64, data.text);
           } else if (data.type === 'interrupted') {
             stopAudioPlayback();
             setJarvisState('idle');
@@ -146,48 +146,130 @@ export default function App() {
     ]);
   };
 
+  const levelIntervalRef = useRef(null);
 
-  const playAudioPayload = (base64Audio) => {
+  const speakBrowserFallback = (text) => {
+    if (!('speechSynthesis' in window) || !text) {
+      setJarvisState('idle');
+      return;
+    }
+
     try {
-      stopAudioPlayback();
+      window.speechSynthesis.cancel();
+      const clean = text.replace(/```[\s\S]*?```/g, '').replace(/[*_#>`~]/g, ' ').trim();
+      if (!clean) {
+        setJarvisState('idle');
+        return;
+      }
+
+      const utterance = new SpeechSynthesisUtterance(clean);
+      const voices = window.speechSynthesis.getVoices() || [];
+      const jarvisVoice = voices.find((v) =>
+        v.lang.includes('en-GB') ||
+        v.name.toLowerCase().includes('british') ||
+        v.name.toLowerCase().includes('ryan') ||
+        v.name.toLowerCase().includes('daniel') ||
+        v.name.toLowerCase().includes('george')
+      ) || voices.find((v) => v.lang.startsWith('en'));
+
+      if (jarvisVoice) utterance.voice = jarvisVoice;
+      utterance.rate = 1.05;
+      utterance.pitch = 1.0;
+
+      utterance.onstart = () => {
+        setJarvisState('speaking');
+        if (levelIntervalRef.current) clearInterval(levelIntervalRef.current);
+        levelIntervalRef.current = setInterval(() => {
+          setAudioLevel(Math.floor(Math.random() * 45) + 30);
+        }, 100);
+      };
+
+      utterance.onend = () => {
+        if (levelIntervalRef.current) clearInterval(levelIntervalRef.current);
+        levelIntervalRef.current = null;
+        setAudioLevel(0);
+        setJarvisState('idle');
+      };
+
+      utterance.onerror = () => {
+        if (levelIntervalRef.current) clearInterval(levelIntervalRef.current);
+        levelIntervalRef.current = null;
+        setAudioLevel(0);
+        setJarvisState('idle');
+      };
+
+      window.speechSynthesis.speak(utterance);
+    } catch (e) {
+      console.warn('SpeechSynthesis error:', e);
+      setJarvisState('idle');
+    }
+  };
+
+  const playAudioPayload = (base64Audio, fallbackText = '') => {
+    stopAudioPlayback();
+
+    if (!base64Audio) {
+      speakBrowserFallback(fallbackText);
+      return;
+    }
+
+    try {
       const audio = new Audio(`data:audio/mp3;base64,${base64Audio}`);
       currentAudioRef.current = audio;
       
       setJarvisState('speaking');
       
-      let levelInterval = setInterval(() => {
+      if (levelIntervalRef.current) clearInterval(levelIntervalRef.current);
+      levelIntervalRef.current = setInterval(() => {
         setAudioLevel(Math.floor(Math.random() * 45) + 30);
       }, 100);
 
       audio.onended = () => {
-        clearInterval(levelInterval);
+        if (levelIntervalRef.current) clearInterval(levelIntervalRef.current);
+        levelIntervalRef.current = null;
         setAudioLevel(0);
         setJarvisState('idle');
         currentAudioRef.current = null;
       };
 
-      audio.onerror = () => {
-        clearInterval(levelInterval);
-        setAudioLevel(0);
-        setJarvisState('idle');
+      audio.onerror = (err) => {
+        console.warn('Audio playback fallback:', err);
+        if (levelIntervalRef.current) clearInterval(levelIntervalRef.current);
+        levelIntervalRef.current = null;
+        currentAudioRef.current = null;
+        speakBrowserFallback(fallbackText);
       };
 
-      audio.play().catch((e) => {
-        console.warn('Auto-play error:', e);
-        clearInterval(levelInterval);
-        setAudioLevel(0);
-        setJarvisState('idle');
-      });
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((e) => {
+          console.warn('Audio play fallback:', e);
+          if (levelIntervalRef.current) clearInterval(levelIntervalRef.current);
+          levelIntervalRef.current = null;
+          currentAudioRef.current = null;
+          speakBrowserFallback(fallbackText);
+        });
+      }
     } catch (e) {
-      console.warn('Audio playback error:', e);
+      console.warn('Audio construct error:', e);
+      speakBrowserFallback(fallbackText);
     }
   };
 
   const stopAudioPlayback = () => {
+    if (levelIntervalRef.current) {
+      clearInterval(levelIntervalRef.current);
+      levelIntervalRef.current = null;
+    }
     if (currentAudioRef.current) {
       currentAudioRef.current.pause();
       currentAudioRef.current.currentTime = 0;
       currentAudioRef.current = null;
+    }
+    if ('speechSynthesis' in window) {
+      try {
+        window.speechSynthesis.cancel();
+      } catch (e) {}
     }
     setAudioLevel(0);
   };
@@ -231,8 +313,8 @@ export default function App() {
                 }
               }
             }
-            if (data.audio_base64) {
-              playAudioPayload(data.audio_base64);
+            if (data.audio_base64 || data.response) {
+              playAudioPayload(data.audio_base64, data.response);
             }
           }
         })
@@ -278,19 +360,19 @@ export default function App() {
   const criticalIncidentCount = socData.metrics?.critical_p0_p1 || 0;
 
   return (
-    <div className="min-h-screen bg-[#030712] text-slate-100 bg-cyber-grid p-4 md:p-6 flex flex-col justify-between relative overflow-hidden">
+    <div className="min-h-screen bg-[#030712] text-slate-100 bg-cyber-grid p-4 md:p-6 flex flex-col justify-between relative overflow-hidden font-sans">
       {/* Top HUD Header */}
-      <header className="flex flex-wrap items-center justify-between gap-4 pb-4 mb-4 border-b border-cyan-500/20 glass-panel px-6 py-3 rounded-2xl">
+      <header className="flex flex-wrap items-center justify-between gap-4 pb-3.5 mb-4 border border-slate-800 bg-slate-900/90 px-6 py-3 rounded-xl shadow-lg backdrop-blur-md">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center shadow-neon-cyan">
-            <Sparkles size={20} className="text-black" />
+          <div className="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-sky-400">
+            <Sparkles size={16} />
           </div>
           <div>
-            <h1 className="text-lg md:text-xl font-orbitron font-extrabold tracking-wider text-cyan-300 glow-text-cyan">
+            <h1 className="text-base font-bold tracking-wider text-slate-100 font-mono">
               J.A.R.V.I.S.
             </h1>
             <p className="text-[10px] font-mono text-slate-400">
-              JUST A RATHER VERY INTELLIGENT SYSTEM // ENTERPRISE SOC CORE
+              AUTONOMOUS EXECUTIVE AGENTIC PLATFORM
             </p>
           </div>
         </div>
@@ -301,46 +383,46 @@ export default function App() {
         </div>
 
         {/* HUD View Mode Switcher & Tools */}
-        <div className="flex items-center gap-2 p-1 rounded-xl bg-black/60 border border-cyan-500/30">
+        <div className="flex items-center gap-1.5 p-1 rounded-lg bg-slate-950 border border-slate-800">
           <button
             onClick={() => setActiveView('ASSISTANT')}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-mono font-bold transition-all ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-mono font-medium transition-all ${
               activeView === 'ASSISTANT'
-                ? 'bg-cyan-500 text-black shadow-neon-cyan'
+                ? 'bg-slate-800 text-white shadow-sm font-semibold'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            <Layers size={13} /> ASSISTANT HUD
+            <Layers size={13} /> ASSISTANT
           </button>
           
           <button
             onClick={() => setActiveView('SOC_OPERATIONS')}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-mono font-bold transition-all relative ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-mono font-medium transition-all relative ${
               activeView === 'SOC_OPERATIONS'
-                ? 'bg-rose-600 text-white shadow-neon-danger'
+                ? 'bg-slate-800 text-rose-300 shadow-sm font-semibold'
                 : 'text-slate-400 hover:text-rose-300'
             }`}
           >
-            <ShieldAlert size={13} /> CYBER SOC OPERATIONS
+            <ShieldAlert size={13} /> CYBER SOC
             {criticalIncidentCount > 0 && (
-              <span className="w-2 h-2 rounded-full bg-rose-400 animate-ping absolute -top-1 -right-1" />
+              <span className="w-2 h-2 rounded-full bg-rose-400 animate-ping absolute -top-0.5 -right-0.5" />
             )}
           </button>
 
           {/* Smart Memory Matrix Button */}
           <button
             onClick={() => setIsMemoryModalOpen(true)}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-mono font-bold text-cyan-300 hover:text-cyan-100 hover:bg-cyan-500/10 border border-cyan-500/30 transition-all"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded text-[11px] font-mono font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-850 transition-all"
             title="Open Smart Memory Matrix"
           >
-            <Brain size={12} className="text-cyan-400" />
+            <Brain size={12} className="text-slate-400" />
             <span>MEMORY</span>
           </button>
 
           {/* Reasoning Trace Drawer Button */}
           <button
             onClick={() => setIsTraceDrawerOpen(true)}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-mono font-bold text-slate-300 hover:text-white hover:bg-slate-800 border border-slate-700 transition-all"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded text-[11px] font-mono font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-850 transition-all"
             title="Open Agent Reasoning Trace"
           >
             <Cpu size={12} className="text-slate-400" />
@@ -350,28 +432,28 @@ export default function App() {
           {/* Master SOC Power Switch */}
           <button
             onClick={handleToggleSoc}
-            title={socEnabled ? "SOC Security Active - Click to Turn Off" : "SOC Security Standby - Click to Turn On"}
-            className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-mono font-bold transition-all border ${
+            title={socEnabled ? "SOC Security Active" : "SOC Security Standby"}
+            className={`flex items-center gap-1 px-2.5 py-1.5 rounded text-[11px] font-mono font-medium transition-all ${
               socEnabled 
-                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50 shadow-neon-cyan hover:bg-emerald-500/30' 
-                : 'bg-amber-500/20 text-amber-300 border-amber-500/50 hover:bg-amber-500/30'
+                ? 'bg-emerald-950/60 text-emerald-300 border border-emerald-800/40' 
+                : 'bg-amber-950/60 text-amber-300 border border-amber-800/40'
             }`}
           >
-            <Power size={12} className={socEnabled ? 'text-emerald-400' : 'text-amber-400'} />
+            <Power size={11} className={socEnabled ? 'text-emerald-400' : 'text-amber-400'} />
             <span>SOC: {socEnabled ? 'ON' : 'OFF'}</span>
           </button>
         </div>
 
         {/* Live Network & Security Status */}
-        <div className="flex items-center gap-4 text-xs font-mono">
-          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900 border border-cyan-500/30">
+        <div className="flex items-center gap-3 text-xs font-mono">
+          <div className="flex items-center gap-2 px-2.5 py-1 rounded-md bg-slate-950 border border-slate-800">
             <span
               className={`w-2 h-2 rounded-full ${
-                isConnected ? 'bg-emerald-400 animate-pulse' : 'bg-rose-500'
+                isConnected ? 'bg-emerald-400' : 'bg-rose-500'
               }`}
             />
-            <span className={isConnected ? 'text-emerald-300' : 'text-rose-400'}>
-              {isConnected ? 'ONLINE // CORE SYNCED' : 'DISCONNECTED'}
+            <span className={isConnected ? 'text-slate-300 text-[11px]' : 'text-rose-400 text-[11px]'}>
+              {isConnected ? 'ONLINE' : 'DISCONNECTED'}
             </span>
           </div>
         </div>
@@ -379,14 +461,14 @@ export default function App() {
 
       {/* Main View Container */}
       {activeView === 'ASSISTANT' ? (
-        <main className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 items-start mb-4">
+        <main className="grid grid-cols-1 lg:grid-cols-12 gap-5 flex-1 items-start mb-4">
           {/* Left Telemetry Panel (3 cols) */}
           <div className="lg:col-span-3 h-full">
             <TelemetryPanel vitals={vitals} />
           </div>
 
           {/* Center Holographic Core & Voice Controls (5 cols) */}
-          <div className="lg:col-span-5 flex flex-col items-center justify-center gap-6 py-2">
+          <div className="lg:col-span-5 flex flex-col items-center justify-center gap-5 py-2">
             <ArcReactor state={jarvisState} audioLevel={audioLevel} size={300} />
             
             <VoiceController
@@ -409,26 +491,22 @@ export default function App() {
       )}
 
       {/* Bottom Subagents Matrix & Command Bar */}
-      <footer className="space-y-4">
+      <footer className="space-y-3.5">
         {activeView === 'ASSISTANT' && <AgentMatrix agents={agents} />}
         <CommandInput onSendCommand={handleSendMessage} disabled={!isConnected} />
       </footer>
 
       {/* Embedded Cyber Music Player */}
-      {currentTrack && (
-        <CyberPlayer
-          currentTrack={currentTrack}
-          onClose={() => setCurrentTrack(null)}
-        />
-      )}
+      <CyberPlayer
+        currentTrack={currentTrack}
+        onClose={() => setCurrentTrack(null)}
+      />
 
-      {/* Security Interlock Human-In-The-Loop Modal */}
-      {pendingGuardrails.length > 0 && (
-        <GuardrailModal
-          pendingApprovals={pendingGuardrails}
-          onResolve={handleResolveGuardrail}
-        />
-      )}
+      {/* Security Guardrail Modal */}
+      <GuardrailModal
+        pendingApprovals={pendingGuardrails}
+        onResolve={handleResolveGuardrail}
+      />
 
       {/* Smart Memory Matrix Modal */}
       <SmartMemoryModal
@@ -436,7 +514,7 @@ export default function App() {
         onClose={() => setIsMemoryModalOpen(false)}
       />
 
-      {/* Agent Reasoning Trace Drawer */}
+      {/* Reasoning Trace Drawer */}
       <ReasoningTraceDrawer
         isOpen={isTraceDrawerOpen}
         onClose={() => setIsTraceDrawerOpen(false)}

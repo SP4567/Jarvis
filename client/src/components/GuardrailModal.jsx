@@ -1,13 +1,19 @@
-import React, { useEffect } from 'react';
-import { AlertTriangle, ShieldAlert, Check, X, Terminal } from 'lucide-react';
+﻿import React, { useState, useEffect } from 'react';
+import { AlertTriangle, ShieldAlert, Check, X, Terminal, Edit3, RefreshCw } from 'lucide-react';
 import { playWarningAlarmSound, playAuthorizeSound, playRejectSound } from '../utils/audioEffects';
 
 export default function GuardrailModal({ pendingApprovals = [], onResolve }) {
   const currentRequest = pendingApprovals[0];
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedParamsJson, setEditedParamsJson] = useState('');
+  const [jsonError, setJsonError] = useState('');
 
   useEffect(() => {
     if (currentRequest) {
       playWarningAlarmSound();
+      setIsEditing(false);
+      setEditedParamsJson(JSON.stringify(currentRequest.details || {}, null, 2));
+      setJsonError('');
     }
   }, [currentRequest?.action_id]);
 
@@ -15,7 +21,17 @@ export default function GuardrailModal({ pendingApprovals = [], onResolve }) {
 
   const handleApprove = () => {
     playAuthorizeSound();
-    onResolve(currentRequest.action_id, true);
+    if (isEditing) {
+      try {
+        const parsed = JSON.parse(editedParamsJson);
+        onResolve(currentRequest.action_id, true, parsed);
+      } catch (err) {
+        setJsonError('Invalid JSON format for modified parameters.');
+        return;
+      }
+    } else {
+      onResolve(currentRequest.action_id, true);
+    }
   };
 
   const handleReject = () => {
@@ -23,82 +39,117 @@ export default function GuardrailModal({ pendingApprovals = [], onResolve }) {
     onResolve(currentRequest.action_id, false);
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
-      <div className="relative w-full max-w-lg p-6 rounded-2xl glass-panel border-2 border-rose-500 shadow-neon-danger">
-        {/* Corner tech accents in red */}
-        <div className="tech-corner-tl !border-rose-500" />
-        <div className="tech-corner-tr !border-rose-500" />
-        <div className="tech-corner-bl !border-rose-500" />
-        <div className="tech-corner-br !border-rose-500" />
+  const riskLevel = currentRequest.risk_level || 'HIGH';
 
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+      <div className="relative w-full max-w-lg p-5 rounded-xl bg-slate-900 border border-rose-500/60 shadow-2xl space-y-4">
         {/* Warning Header */}
-        <div className="flex items-center gap-3 pb-4 border-b border-rose-500/30 mb-4">
-          <div className="p-3 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/40 animate-pulse">
-            <ShieldAlert size={28} />
+        <div className="flex items-center gap-3 pb-3 border-b border-slate-800">
+          <div className="p-2 rounded-lg bg-rose-950/80 text-rose-400 border border-rose-800/60">
+            <ShieldAlert size={22} />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-rose-500/30 text-rose-300 border border-rose-500/50">
-                SECURITY INTERLOCK // TIER 3
+              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-rose-950 text-rose-300 border border-rose-800">
+                SECURITY INTERLOCK // {riskLevel} RISK
               </span>
               <span className="text-xs font-mono text-slate-400">ID: {currentRequest.action_id}</span>
             </div>
-            <h2 className="text-lg font-bold font-orbitron text-rose-400 glow-text-danger mt-1">
+            <h2 className="text-sm font-bold font-mono text-slate-100 mt-1">
               HUMAN AUTHORIZATION REQUIRED
             </h2>
           </div>
         </div>
 
         {/* Action Details */}
-        <div className="space-y-3 mb-6">
-          <div className="flex justify-between text-xs font-mono">
+        <div className="space-y-2.5 text-xs font-mono">
+          <div className="flex justify-between">
             <span className="text-slate-400">Initiating Subagent:</span>
-            <span className="text-cyan-300 font-bold">{currentRequest.agent_name}</span>
+            <span className="text-slate-200 font-semibold">{currentRequest.agent_name}</span>
           </div>
 
-          <div className="flex justify-between text-xs font-mono">
+          <div className="flex justify-between">
             <span className="text-slate-400">Requested Action:</span>
-            <span className="text-amber-400 font-bold">{currentRequest.action_name}</span>
+            <span className="text-amber-400 font-semibold">{currentRequest.action_name}</span>
           </div>
 
-          <div className="p-3 rounded-lg bg-black/60 border border-rose-500/30">
-            <div className="text-[11px] font-mono text-slate-400 mb-1 flex items-center gap-1.5">
-              <Terminal size={12} className="text-rose-400" />
-              <span>Target Parameters / Command:</span>
+          {currentRequest.target_resource && (
+            <div className="flex justify-between">
+              <span className="text-slate-400">Target Environment/Resource:</span>
+              <span className="text-rose-300 font-semibold">{currentRequest.target_resource}</span>
             </div>
-            <pre className="text-xs font-mono text-rose-200 overflow-x-auto p-2 rounded bg-rose-950/30 border border-rose-500/20">
-              {JSON.stringify(currentRequest.details, null, 2)}
-            </pre>
+          )}
+
+          <div className="p-3 rounded-lg bg-slate-950 border border-slate-800">
+            <div className="text-[11px] font-mono text-slate-400 mb-1.5 flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <Terminal size={12} className="text-rose-400" />
+                <span>Target Parameters / Execution Payload:</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEditing(!isEditing)}
+                className="flex items-center gap-1 text-[10px] text-sky-400 hover:text-sky-300 transition-colors"
+              >
+                <Edit3 size={11} />
+                <span>{isEditing ? 'Cancel Edit' : 'Edit Parameters'}</span>
+              </button>
+            </div>
+
+            {isEditing ? (
+              <div className="space-y-1.5">
+                <textarea
+                  rows={4}
+                  value={editedParamsJson}
+                  onChange={(e) => {
+                    setEditedParamsJson(e.target.value);
+                    setJsonError('');
+                  }}
+                  className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-xs font-mono text-slate-200 focus:outline-none focus:border-slate-500 resize-none"
+                />
+                {jsonError && <p className="text-[10px] text-rose-400 font-mono">{jsonError}</p>}
+              </div>
+            ) : (
+              <pre className="text-slate-300 text-[11px] font-mono overflow-x-auto whitespace-pre-wrap">
+                {JSON.stringify(currentRequest.details || {}, null, 2)}
+              </pre>
+            )}
           </div>
 
-          <p className="text-xs font-mono text-slate-300 leading-relaxed">
-            <span className="text-amber-400 font-bold">Safety Note:</span> {currentRequest.description || currentRequest.reason}
-          </p>
+          {/* Expected Impact & Rollback Plan */}
+          {currentRequest.expected_impact && (
+            <div className="p-2.5 rounded-lg bg-slate-950/60 border border-slate-800 text-[11px] space-y-1">
+              <div>
+                <span className="text-slate-400 font-bold uppercase text-[9px] block">Expected Impact:</span>
+                <span className="text-slate-300">{currentRequest.expected_impact}</span>
+              </div>
+              {currentRequest.rollback_strategy && (
+                <div className="pt-1 border-t border-slate-900">
+                  <span className="text-slate-500 font-bold uppercase text-[9px] block">Rollback Strategy:</span>
+                  <span className="text-slate-400">{currentRequest.rollback_strategy}</span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex items-center justify-between gap-4 pt-2">
+        {/* Action Controls */}
+        <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-800">
           <button
             onClick={handleReject}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-slate-900 border border-rose-500/50 text-rose-400 hover:bg-rose-950/60 hover:border-rose-400 text-xs font-mono font-bold transition-all shadow-md"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-750 text-slate-300 text-xs font-mono font-semibold transition-colors"
           >
-            <X size={16} />
-            ABORT ACTION
+            <X size={14} />
+            REJECT ACTION
           </button>
-
           <button
             onClick={handleApprove}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-black text-xs font-mono font-bold transition-all shadow-lg hover:shadow-emerald-500/30"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-mono font-semibold transition-colors"
           >
-            <Check size={16} />
-            AUTHORIZE & RUN
+            <Check size={14} />
+            AUTHORIZE & EXECUTE
           </button>
-        </div>
-
-        {/* Voice prompt hint */}
-        <div className="mt-4 text-center text-[10px] font-mono text-slate-400">
-          Or speak voice command: <span className="text-cyan-300">"JARVIS, authorize"</span> or <span className="text-rose-400">"JARVIS, abort"</span>
         </div>
       </div>
     </div>
