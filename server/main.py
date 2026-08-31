@@ -21,6 +21,7 @@ from server.soc.case_memory import soc_case_memory
 from server.soc.soc_guardrails import soc_guardrail_engine
 from server.soc.telemetry_generator import telemetry_generator
 from server.soc.live_collector import live_host_collector
+from server.soc.background_monitor import background_security_monitor
 from server.soc.models import IncidentStatus, SeverityLevel
 
 # JARVIS-V2 Subsystem Imports
