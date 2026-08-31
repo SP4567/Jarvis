@@ -1,4 +1,4 @@
-﻿import re
+import re
 import time
 import asyncio
 from typing import Dict, Any, List, Optional, Callable
@@ -184,9 +184,11 @@ class Orchestrator:
 
     async def handle_user_command(
         self,
-        raw_text: str,
+        raw_text: str = "",
+        user_text: str = "",
         session_id: str = "default",
-        thought_callback: Optional[Callable[[AgentThought], None]] = None
+        thought_callback: Optional[Callable[[AgentThought], None]] = None,
+        **kwargs
     ) -> Dict[str, Any]:
         """
         Master Pipeline Entry Point:
@@ -198,13 +200,14 @@ class Orchestrator:
         6. Synthesis and memory persistence
         """
         start_time = time.time()
+        incoming_text = user_text if user_text else (raw_text if raw_text else kwargs.get("command", ""))
 
         # =========================================================================
         # STAGE 1: SANITIZATION & PREFIX REMOVAL
         # =========================================================================
-        cleaned_text = self._clean_input(raw_text)
+        cleaned_text = self._clean_input(incoming_text)
         if not cleaned_text:
-            cleaned_text = raw_text.strip()
+            cleaned_text = incoming_text.strip()
 
         # =========================================================================
         # STAGE 2: SECURITY GUARDRAIL INTERLOCK (INJECTION FILTER)
@@ -221,9 +224,9 @@ class Orchestrator:
         # =========================================================================
         # STAGE 3: CONTEXT ENRICHMENT & MEMORY RESOLUTION
         # =========================================================================
-        extracted_fact = smart_memory.auto_extract_and_store_facts(raw_text)
-        context_resolved_text = smart_memory.resolve_contextual_pronouns(raw_text)
-        smart_memory.add_working_turn(role="user", content=raw_text, session_id=session_id)
+        extracted_fact = smart_memory.auto_extract_and_store_facts(incoming_text)
+        context_resolved_text = smart_memory.resolve_contextual_pronouns(incoming_text)
+        smart_memory.add_working_turn(role="user", content=incoming_text, session_id=session_id)
 
         # =========================================================================
         # STAGE 4: HYBRID INTENT ENGINE PARSING & ROUTING
@@ -236,10 +239,10 @@ class Orchestrator:
         result: CommandResponse
         
         # Check if fast-path is possible and confidence is high
-        if intent_router.can_fast_path(intent_res) and intent_res.confidence >= 0.75:
+        if intent_router.can_fast_path(intent_res) and intent_res.confidence >= 0.70:
             result = await intent_router.execute_fast_path(
                 intent=intent_res,
-                raw_text=raw_text,
+                raw_text=incoming_text,
                 context_resolved_text=context_resolved_text,
                 extracted_fact=extracted_fact,
                 session_id=session_id
@@ -258,7 +261,7 @@ class Orchestrator:
             if not result.success:
                 result = await intent_router.execute_fast_path(
                     intent=intent_res,
-                    raw_text=raw_text,
+                    raw_text=incoming_text,
                     context_resolved_text=context_resolved_text,
                     extracted_fact=extracted_fact,
                     session_id=session_id

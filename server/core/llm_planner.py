@@ -25,11 +25,10 @@ class LLMPlanner:
     def __init__(self):
         self._client = None
         self._available_models = [
-            settings.TEXT_MODEL,          # "gemini-3.1-flash-lite-preview"
-            "gemini-3.1-flash-lite-preview",
-            "gemini-3-flash-preview",
-            "gemini-flash-latest",
-            "gemini-pro-latest"
+            settings.TEXT_MODEL,
+            "gemini-2.5-flash",
+            "gemini-2.0-flash",
+            "gemini-1.5-flash"
         ]
         if settings.GEMINI_API_KEY:
             try:
@@ -48,14 +47,14 @@ class LLMPlanner:
         return self._client
 
     async def _execute_generate_content_with_fallback(self, client, contents, config, preferred_model: Optional[str] = None):
-        """Executes Gemini generate_content with automatic graceful fallback across model tiers and 8.0s timeout"""
+        """Executes Gemini generate_content with low-latency model fallback (3.5s timeout per tier)"""
         models_to_try = [preferred_model] if preferred_model else []
         for m in self._available_models:
             if m and m not in models_to_try:
                 models_to_try.append(m)
 
         last_error = None
-        for model_name in models_to_try:
+        for model_name in models_to_try[:2]: # Test top 2 fast models
             try:
                 response = await asyncio.wait_for(
                     asyncio.to_thread(
@@ -64,14 +63,13 @@ class LLMPlanner:
                         contents=contents,
                         config=config
                     ),
-                    timeout=8.0
+                    timeout=3.5
                 )
                 return response, model_name
             except Exception as err:
                 last_error = err
-                # Try next model in ladder
 
-        raise last_error or RuntimeError("No Gemini models succeeded.")
+        raise last_error or RuntimeError("No Gemini models responded within latency budget.")
 
     async def plan_and_execute(
         self,

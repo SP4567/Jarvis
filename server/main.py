@@ -182,45 +182,55 @@ async def websocket_live_endpoint(websocket: WebSocket, token: Optional[str] = Q
                     "user_text": text
                 })
 
-                # Thought streaming callback
-                def on_thought(thought):
-                    asyncio.create_task(manager.send_json_safe(websocket, {
-                        "type": "agent_thought",
-                        "thought": thought.model_dump()
-                    }))
-
-                result = await orchestrator.handle_user_command(
-                    user_text=text,
-                    session_id=session_id,
-                    thought_callback=on_thought
-                )
-                response_text = result.get("text", "")
-
-                await manager.send_json_safe(websocket, {
-                    "type": "jarvis_state",
-                    "state": "speaking",
-                    "response_text": response_text,
-                    "agent_used": result.get("agent_used"),
-                    "actions": result.get("actions", []),
-                    "thoughts": result.get("thoughts", []),
-                    "latency_ms": result.get("latency_ms", 0.0)
-                })
-
                 try:
-                    audio_b64 = await voice_engine.synthesize_speech_base64(response_text)
+                    # Thought streaming callback
+                    def on_thought(thought):
+                        asyncio.create_task(manager.send_json_safe(websocket, {
+                            "type": "agent_thought",
+                            "thought": thought.model_dump()
+                        }))
+
+                    result = await orchestrator.handle_user_command(
+                        user_text=text,
+                        session_id=session_id,
+                        thought_callback=on_thought
+                    )
+                    response_text = result.get("text", "")
+
                     await manager.send_json_safe(websocket, {
-                        "type": "audio_payload",
-                        "audio_base64": audio_b64,
-                        "text": response_text,
-                        "agent_used": result.get("agent_used")
+                        "type": "jarvis_state",
+                        "state": "speaking",
+                        "response_text": response_text,
+                        "agent_used": result.get("agent_used"),
+                        "actions": result.get("actions", []),
+                        "thoughts": result.get("thoughts", []),
+                        "latency_ms": result.get("latency_ms", 0.0)
                     })
-                except Exception as audio_err:
-                    print("TTS Synthesis error:", audio_err)
+
+                    try:
+                        audio_b64 = await voice_engine.synthesize_speech_base64(response_text)
+                        await manager.send_json_safe(websocket, {
+                            "type": "audio_payload",
+                            "audio_base64": audio_b64,
+                            "text": response_text,
+                            "agent_used": result.get("agent_used")
+                        })
+                    except Exception as audio_err:
+                        print("TTS Synthesis error:", audio_err)
+                        await manager.send_json_safe(websocket, {
+                            "type": "audio_payload",
+                            "audio_base64": None,
+                            "text": response_text,
+                            "agent_used": result.get("agent_used")
+                        })
+                except Exception as cmd_err:
+                    print("Command processing error:", cmd_err)
                     await manager.send_json_safe(websocket, {
-                        "type": "audio_payload",
-                        "audio_base64": None,
-                        "text": response_text,
-                        "agent_used": result.get("agent_used")
+                        "type": "jarvis_state",
+                        "state": "idle",
+                        "response_text": f"I encountered an issue processing that instruction, Sir: {str(cmd_err)}",
+                        "agent_used": "orchestrator",
+                        "latency_ms": 0.0
                     })
 
             # 2. Interruption event
