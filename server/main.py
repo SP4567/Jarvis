@@ -21,8 +21,16 @@ from server.soc.case_memory import soc_case_memory
 from server.soc.soc_guardrails import soc_guardrail_engine
 from server.soc.telemetry_generator import telemetry_generator
 from server.soc.live_collector import live_host_collector
-from server.soc.background_monitor import background_security_monitor
 from server.soc.models import IncidentStatus, SeverityLevel
+
+# JARVIS-V2 Subsystem Imports
+from server.core.dag_planner import dag_planner
+from server.core.tool_synthesizer import tool_synthesizer
+from server.core.vision_grounding import vision_grounding_engine
+from server.core.knowledge_graph import knowledge_graph
+from server.core.desktop_controller import desktop_controller
+from server.soc.kernel_etw_monitor import kernel_etw_monitor
+from server.soc.adversary_emulator import adversary_emulator
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -489,6 +497,76 @@ class TTSRequest(BaseModel):
 async def generate_tts_endpoint(req: TTSRequest):
     audio_bytes = await voice_engine.synthesize_speech_bytes(req.text)
     return Response(content=audio_bytes, media_type="audio/mp3")
+
+# ==========================================
+# JARVIS-V2: CORE API ENDPOINTS
+# ==========================================
+
+class DAGExecuteRequest(BaseModel):
+    goal: str
+    nodes: List[Dict[str, Any]]
+    session_id: str = "default"
+
+@app.post("/api/v2/dag/execute", dependencies=[Depends(verify_auth_header)])
+async def execute_dag_endpoint(req: DAGExecuteRequest):
+    return await orchestrator.execute_dag_workflow(
+        goal=req.goal,
+        nodes=req.nodes,
+        session_id=req.session_id
+    )
+
+class ToolSynthesizeRequest(BaseModel):
+    name: str
+    description: str
+    parameters_schema: Dict[str, Any]
+    python_code: str
+    entry_func: str
+    test_cases: List[Dict[str, Any]]
+
+@app.post("/api/v2/tools/synthesize", dependencies=[Depends(verify_auth_header)])
+async def synthesize_tool_endpoint(req: ToolSynthesizeRequest):
+    success, tool, msg = await orchestrator.synthesize_runtime_tool(
+        name=req.name,
+        description=req.description,
+        parameters_schema=req.parameters_schema,
+        python_code=req.python_code,
+        entry_func=req.entry_func,
+        test_cases=req.test_cases
+    )
+    return {
+        "success": success,
+        "message": msg,
+        "tool": tool.dict() if tool else None
+    }
+
+@app.get("/api/v2/vision/screen", dependencies=[Depends(verify_auth_header)])
+def inspect_screen_vision_endpoint(window_title: str = "Active Workspace"):
+    return vision_grounding_engine.analyze_screen_telemetry(window_title=window_title)
+
+@app.get("/api/v2/knowledge/search", dependencies=[Depends(verify_auth_header)])
+def search_knowledge_graph_endpoint(q: str = "", limit: int = 10):
+    return knowledge_graph.search_knowledge_hybrid(query=q, limit=limit)
+
+@app.get("/api/v2/desktop/windows", dependencies=[Depends(verify_auth_header)])
+def list_desktop_windows_endpoint():
+    return desktop_controller.get_open_windows()
+
+@app.get("/api/v2/desktop/journal", dependencies=[Depends(verify_auth_header)])
+def get_action_journal_endpoint(limit: int = 15):
+    return desktop_controller.get_journal_history(limit=limit)
+
+@app.post("/api/v2/desktop/rollback", dependencies=[Depends(verify_auth_header)])
+def rollback_action_endpoint():
+    success, msg = desktop_controller.rollback_last_action()
+    return {"success": success, "message": msg}
+
+@app.get("/api/v2/soc/kernel_etw", dependencies=[Depends(verify_auth_header)])
+def get_kernel_etw_telemetry_endpoint():
+    return [e.dict() for e in kernel_etw_monitor.inspect_live_kernel_telemetry()]
+
+@app.post("/api/v2/soc/emulation", dependencies=[Depends(verify_auth_header)])
+def run_adversary_emulation_endpoint():
+    return adversary_emulator.run_emulation_suite()
 
 if __name__ == "__main__":
     import uvicorn

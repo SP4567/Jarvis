@@ -1,10 +1,13 @@
-import re
+﻿import re
 import time
 import asyncio
 from typing import Dict, Any, List, Optional, Callable
 
 from server.config import settings
-from server.core.models import CommandResponse, AgentThought, TaskPlan, PlanStep, VerificationResult
+from server.core.models import (
+    CommandResponse, AgentThought, TaskPlan, PlanStep, VerificationResult,
+    DAGTaskPlan, SynthesizedTool, VisionAnalysisResult
+)
 from server.core.smart_memory import smart_memory
 from server.core.guardrails import guardrail_engine
 from server.core.intent_classifier import intent_engine, IntentCategory, IntentResult
@@ -12,14 +15,19 @@ from server.core.tool_registry import tool_registry
 from server.core.router import intent_router
 from server.core.llm_planner import llm_planner
 from server.core.agent_registry import agent_registry
+from server.core.dag_planner import dag_planner
+from server.core.tool_synthesizer import tool_synthesizer
+from server.core.vision_grounding import vision_grounding_engine
+from server.core.knowledge_graph import knowledge_graph
+from server.core.desktop_controller import desktop_controller
 from server.soc.soc_guardrails import soc_guardrail_engine
 
 class Orchestrator:
     """
-    JARVIS Master Orchestration Engine 3.0
-    Modular, Enterprise-Grade Coordinator uniting Fast-Path Intent Routing,
-    Multi-Agent Workflow Decomposition, Gemini Multi-Step ReAct Planning, 4-Tier Security Guardrails,
-    Continuous Self-Verification, and Dynamic Multi-Tier Memory.
+    JARVIS Master Orchestration Engine 4.0 (JARVIS-V2)
+    Unites Fast-Path Intent Routing, Dynamic DAG Multi-Agent Workflows,
+    Autonomous Runtime Tool Synthesis, 4-Tier Knowledge Graph,
+    Desktop Vision Grounding, and Kernel-Level Security Guardrails.
     """
     def __init__(self):
         self.registry = agent_registry
@@ -36,6 +44,56 @@ class Orchestrator:
         t = re.sub(r"^(?:hey\s+|ok\s+|hi\s+|hello\s+)?jarvis[,:\s]*", "", t, flags=re.IGNORECASE).strip()
         t = re.sub(r"^(?:please\s+|can\s+you\s+|could\s+you\s+|would\s+you\s+|i\s+want\s+you\s+to\s+|help\s+me\s+to\s+|tell\s+me\s+|give\s+me\s+)?", "", t, flags=re.IGNORECASE).strip()
         return t
+
+    # =========================================================================
+    # JARVIS-V2: DAG MULTI-AGENT EXECUTION
+    # =========================================================================
+    async def execute_dag_workflow(
+        self,
+        goal: str,
+        nodes: List[Dict[str, Any]],
+        session_id: str = "default",
+        thought_callback: Optional[Callable[[AgentThought], None]] = None
+    ) -> CommandResponse:
+        """Creates and executes a concurrent Directed Acyclic Graph plan"""
+        plan = dag_planner.create_dag_plan(goal=goal, nodes_definition=nodes)
+        return await dag_planner.execute_dag(plan=plan, session_id=session_id, thought_callback=thought_callback)
+
+    # =========================================================================
+    # JARVIS-V2: RUNTIME TOOL SYNTHESIS
+    # =========================================================================
+    async def synthesize_runtime_tool(
+        self,
+        name: str,
+        description: str,
+        parameters_schema: Dict[str, Any],
+        python_code: str,
+        entry_func: str,
+        test_cases: List[Dict[str, Any]]
+    ) -> tuple[bool, Optional[SynthesizedTool], str]:
+        """Synthesizes, tests, and registers a runtime tool capability"""
+        return await tool_synthesizer.synthesize_and_register(
+            name=name,
+            description=description,
+            parameters_schema=parameters_schema,
+            python_code=python_code,
+            entry_func=entry_func,
+            test_cases=test_cases
+        )
+
+    # =========================================================================
+    # JARVIS-V2: VISION 2.0 SCREEN GROUNDING
+    # =========================================================================
+    def inspect_desktop_vision(self, window_title: str = "Active Workspace") -> VisionAnalysisResult:
+        """Captures and grounds active screen elements & detects IDE errors"""
+        return vision_grounding_engine.analyze_screen_telemetry(window_title=window_title)
+
+    # =========================================================================
+    # JARVIS-V2: 4-TIER KNOWLEDGE GRAPH
+    # =========================================================================
+    def search_knowledge_graph(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
+        """Queries semantic knowledge graph entities and relations"""
+        return knowledge_graph.search_knowledge_hybrid(query=query, limit=limit)
 
     async def execute_multi_agent_workflow(
         self,
@@ -61,7 +119,8 @@ class Orchestrator:
 
             if thought_callback:
                 thought_callback(AgentThought(
-                    agent=step.agent_name,
+                    step=step.step_number,
+                    agent_name=step.agent_name,
                     thought=f"Executing Step {step.step_number}: {step.description}",
                     timestamp=time.time()
                 ))
@@ -90,7 +149,7 @@ class Orchestrator:
 
             step.status = "VERIFIED" if ver_res.verified else "FAILED"
             step.result = tool_res.result
-            step.verification = ver_res
+            step.verification = ver_res.dict()
             step_verifications.append(ver_res)
 
             executed_actions.append({
@@ -101,142 +160,66 @@ class Orchestrator:
                 "verified": ver_res.verified
             })
 
-            # Accumulate context
-            context_accumulator[f"step_{step.step_number}_result"] = tool_res.result
-            if isinstance(tool_res.result, dict):
-                for rk, rv in tool_res.result.items():
-                    context_accumulator[f"{step.tool_name}_{rk}"] = rv
-
-            # Self-healing recovery if failed
-            if not ver_res.verified:
-                rec_action = await agent.attempt_recovery(
-                    failed_tool=step.tool_name,
+            if not tool_res.success or not ver_res.verified:
+                rec = await agent.recover_from_failure(
+                    tool_name=step.tool_name,
                     params=merged_params,
-                    error_msg=ver_res.verdict,
-                    context=context_accumulator
+                    error=tool_res.error or "Verification failed"
                 )
-                if rec_action.action_type != "ABORT" and rec_action.replacement_tool:
-                    rec_res = await tool_registry.execute_tool(
-                        tool_name=rec_action.replacement_tool,
-                        params=rec_action.replacement_params,
-                        session_id=session_id
-                    )
-                    step.status = "RECOVERED"
-                    step.result = rec_res.result
-                    executed_actions.append({
-                        "step": f"{step.step_number}-recovery",
-                        "agent": step.agent_name,
-                        "tool": rec_action.replacement_tool,
-                        "result": rec_res.result,
-                        "verified": True
-                    })
+                if not rec.recovered:
+                    break
 
-        all_verified = all(s.status in ["VERIFIED", "RECOVERED"] for s in plan.steps)
-        synthesis = f"Multi-agent workflow completed for goal: '{plan.goal}'. All {len(plan.steps)} stages executed and verified, Sir."
+        latency = (time.time() - start_time) * 1000.0
+        success_all = all(s.status == "VERIFIED" for s in plan.steps)
 
         return CommandResponse(
-            success=all_verified,
-            text=synthesis,
-            agent_used="orchestrator",
+            success=success_all,
+            text=f"Multi-Agent Plan '{plan.goal}' completed with {len(executed_actions)} steps executed.",
+            agent_used=plan.initiating_agent,
             actions=executed_actions,
             task_plan=plan,
             verification_results=step_verifications,
-            latency_ms=round((time.time() - start_time) * 1000.0, 2)
+            latency_ms=round(latency, 2)
         )
 
     async def handle_user_command(
         self,
-        user_text: str,
+        raw_text: str,
         session_id: str = "default",
-        context: Optional[Dict[str, Any]] = None,
         thought_callback: Optional[Callable[[AgentThought], None]] = None
     ) -> Dict[str, Any]:
         """
-        Unified 7-Stage Execution Pipeline for user commands.
+        Master Pipeline Entry Point:
+        1. Clean and normalize input
+        2. Prompt Injection Guardrail interlock
+        3. Contextual pronoun resolution and memory recall
+        4. Intent classification (fast-path vs DAG/ReAct multi-step)
+        5. Execution and verification
+        6. Synthesis and memory persistence
         """
-        raw_text = user_text.strip()
         start_time = time.time()
-        
-        # =========================================================================
-        # STAGE 1: PRE-EXECUTION SAFETY & PROMPT INJECTION CHECK
-        # =========================================================================
-        is_safe, safe_text, threat = guardrail_engine.sanitize_prompt_input(raw_text)
-        if not is_safe:
-            smart_memory.add_working_turn(role="user", content=raw_text, session_id=session_id)
-            smart_memory.add_working_turn(role="assistant", content=safe_text, agent_used="guardrails", session_id=session_id)
-            return {
-                "success": False,
-                "text": safe_text,
-                "agent_used": "guardrails",
-                "actions": [],
-                "thoughts": [],
-                "guardrail_blocked": True,
-                "latency_ms": round((time.time() - start_time) * 1000.0, 2)
-            }
 
         # =========================================================================
-        # STAGE 2: QUICK HUMAN-IN-THE-LOOP AUTHORIZATION / CANCELLATION HOOKS
+        # STAGE 1: SANITIZATION & PREFIX REMOVAL
         # =========================================================================
         cleaned_text = self._clean_input(raw_text)
-        if re.search(r"^(authorize|approve|yes\s+execute|confirm|proceed)", cleaned_text, re.IGNORECASE) or re.search(r"^(jarvis\s+)?(authorize|approve|yes\s+execute)", raw_text, re.IGNORECASE):
-            # Check SOC Containment first
-            soc_resolved = soc_guardrail_engine.resolve_latest_pending(approved=True, approver="VOICE_AUTHORIZATION")
-            if soc_resolved:
-                target_str = str(soc_resolved.target.get("hostname") or soc_resolved.target.get("ip") or "target")
-                reply = f"SOC Containment Authorized, Sir. Executing '{soc_resolved.action_name}' on target {target_str}."
-                smart_memory.add_working_turn(role="assistant", content=reply, agent_used="soc_guardrails", session_id=session_id)
-                return {
-                    "success": True,
-                    "text": reply,
-                    "agent_used": "soc_guardrails",
-                    "action_executed": soc_resolved.action_name,
-                    "status": "approved",
-                    "latency_ms": round((time.time() - start_time) * 1000.0, 2)
-                }
-
-            # Check general system guardrails
-            resolved = guardrail_engine.resolve_latest_pending(approved=True, approver="VOICE_AUTHORIZATION")
-            if resolved:
-                reply = f"Authorization confirmed, Sir. Proceeding with '{resolved.action_name}'."
-                smart_memory.add_working_turn(role="assistant", content=reply, agent_used="guardrails", session_id=session_id)
-                return {
-                    "success": True,
-                    "text": reply,
-                    "agent_used": "guardrails",
-                    "action_executed": resolved.action_name,
-                    "status": "approved",
-                    "latency_ms": round((time.time() - start_time) * 1000.0, 2)
-                }
-
-        if re.search(r"^(cancel|abort|reject|no\s+stop|deny)", cleaned_text, re.IGNORECASE) or re.search(r"^(jarvis\s+)?(cancel|abort|reject)", raw_text, re.IGNORECASE):
-            soc_resolved = soc_guardrail_engine.resolve_latest_pending(approved=False, approver="VOICE_AUTHORIZATION")
-            if soc_resolved:
-                reply = f"SOC Containment Action '{soc_resolved.action_name}' has been aborted, Sir."
-                smart_memory.add_working_turn(role="assistant", content=reply, agent_used="soc_guardrails", session_id=session_id)
-                return {
-                    "success": True,
-                    "text": reply,
-                    "agent_used": "soc_guardrails",
-                    "action_executed": soc_resolved.action_name,
-                    "status": "rejected",
-                    "latency_ms": round((time.time() - start_time) * 1000.0, 2)
-                }
-
-            resolved = guardrail_engine.resolve_latest_pending(approved=False, approver="VOICE_AUTHORIZATION")
-            if resolved:
-                reply = f"Action '{resolved.action_name}' has been aborted as per your instruction, Sir."
-                smart_memory.add_working_turn(role="assistant", content=reply, agent_used="guardrails", session_id=session_id)
-                return {
-                    "success": True,
-                    "text": reply,
-                    "agent_used": "guardrails",
-                    "action_executed": resolved.action_name,
-                    "status": "rejected",
-                    "latency_ms": round((time.time() - start_time) * 1000.0, 2)
-                }
+        if not cleaned_text:
+            cleaned_text = raw_text.strip()
 
         # =========================================================================
-        # STAGE 3: SMART MEMORY CONTEXT ENRICHMENT & AUTO FACT EXTRACTION
+        # STAGE 2: SECURITY GUARDRAIL INTERLOCK (INJECTION FILTER)
+        # =========================================================================
+        if guardrail_engine.detect_prompt_injection(cleaned_text):
+            return CommandResponse(
+                success=False,
+                text="Security interlock triggered: Potential prompt injection or system override detected, Sir.",
+                agent_used="guardrails",
+                confidence=0.0,
+                latency_ms=round((time.time() - start_time) * 1000.0, 2)
+            ).model_dump()
+
+        # =========================================================================
+        # STAGE 3: CONTEXT ENRICHMENT & MEMORY RESOLUTION
         # =========================================================================
         extracted_fact = smart_memory.auto_extract_and_store_facts(raw_text)
         context_resolved_text = smart_memory.resolve_contextual_pronouns(raw_text)

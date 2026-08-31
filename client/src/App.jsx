@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect, useRef } from 'react';
-import { Shield, Sparkles, Activity, Settings, Radio, Volume2, ShieldAlert, Layers, Power, Brain, Cpu } from 'lucide-react';
+import { Shield, Sparkles, Activity, Settings, Radio, Volume2, ShieldAlert, Layers, Power, Brain, Cpu, GitBranch, Terminal, Eye } from 'lucide-react';
 import ArcReactor from './components/ArcReactor';
 import VoiceController from './components/VoiceController';
 import AgentMatrix from './components/AgentMatrix';
@@ -12,6 +12,10 @@ import SocDashboard from './components/soc/SocDashboard';
 import SmartMemoryModal from './components/SmartMemoryModal';
 import AudioWaveVisualizer from './components/AudioWaveVisualizer';
 import ReasoningTraceDrawer from './components/ReasoningTraceDrawer';
+import ThoughtGraphModal from './components/ThoughtGraphModal';
+import CodeCanvasDrawer from './components/CodeCanvasDrawer';
+import ScreenVisionHUD from './components/ScreenVisionHUD';
+import CompactPiPWidget from './components/CompactPiPWidget';
 import { playWakeSound } from './utils/audioEffects';
 
 export default function App() {
@@ -27,9 +31,12 @@ export default function App() {
   const [currentTrack, setCurrentTrack] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
 
-  // New Modals & Drawers
+  // JARVIS-V2 Modals & Drawers
   const [isMemoryModalOpen, setIsMemoryModalOpen] = useState(false);
   const [isTraceDrawerOpen, setIsTraceDrawerOpen] = useState(false);
+  const [isThoughtGraphOpen, setIsThoughtGraphOpen] = useState(false);
+  const [isCodeCanvasOpen, setIsCodeCanvasOpen] = useState(false);
+  const [isVisionHudOpen, setIsVisionHudOpen] = useState(false);
 
   const wsRef = useRef(null);
   const currentAudioRef = useRef(null);
@@ -47,7 +54,7 @@ export default function App() {
       ws.onopen = () => {
         setIsConnected(true);
         playWakeSound();
-        addLogMessage('assistant', 'J.A.R.V.I.S. Core Online. Autonomous SecOps Matrix & Subagent protocols fully initialized, Sir.');
+        addLogMessage('assistant', 'J.A.R.V.I.S. V2 Online. Autonomous Swarm, Vision 2.0 & Cognitive Core fully operational, Sir.');
       };
 
       ws.onmessage = (event) => {
@@ -369,10 +376,10 @@ export default function App() {
           </div>
           <div>
             <h1 className="text-base font-bold tracking-wider text-slate-100 font-mono">
-              J.A.R.V.I.S.
+              J.A.R.V.I.S. V2
             </h1>
             <p className="text-[10px] font-mono text-slate-400">
-              AUTONOMOUS EXECUTIVE AGENTIC PLATFORM
+              NEXT-GEN COGNITIVE OPERATING SYSTEM
             </p>
           </div>
         </div>
@@ -382,8 +389,8 @@ export default function App() {
           <AudioWaveVisualizer state={jarvisState} audioLevel={audioLevel} />
         </div>
 
-        {/* HUD View Mode Switcher & Tools */}
-        <div className="flex items-center gap-1.5 p-1 rounded-lg bg-slate-950 border border-slate-800">
+        {/* HUD View Mode Switcher & V2 Tools */}
+        <div className="flex items-center gap-1.5 p-1 rounded-lg bg-slate-950 border border-slate-800 flex-wrap">
           <button
             onClick={() => setActiveView('ASSISTANT')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-mono font-medium transition-all ${
@@ -409,7 +416,37 @@ export default function App() {
             )}
           </button>
 
-          {/* Smart Memory Matrix Button */}
+          {/* V2 Thought Graph Button */}
+          <button
+            onClick={() => setIsThoughtGraphOpen(true)}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded text-[11px] font-mono font-medium text-sky-400 hover:text-sky-200 hover:bg-slate-850 transition-all"
+            title="Open Swarm Thought Graph"
+          >
+            <GitBranch size={12} />
+            <span>DAG GRAPH</span>
+          </button>
+
+          {/* V2 Code Canvas Button */}
+          <button
+            onClick={() => setIsCodeCanvasOpen(true)}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded text-[11px] font-mono font-medium text-emerald-400 hover:text-emerald-200 hover:bg-slate-850 transition-all"
+            title="Open Code Canvas IDE"
+          >
+            <Terminal size={12} />
+            <span>CANVAS</span>
+          </button>
+
+          {/* V2 Vision Grounding Button */}
+          <button
+            onClick={() => setIsVisionHudOpen(true)}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded text-[11px] font-mono font-medium text-amber-400 hover:text-amber-200 hover:bg-slate-850 transition-all"
+            title="Open Screen Vision 2.0"
+          >
+            <Eye size={12} />
+            <span>VISION</span>
+          </button>
+
+          {/* Smart Memory Button */}
           <button
             onClick={() => setIsMemoryModalOpen(true)}
             className="flex items-center gap-1 px-2.5 py-1.5 rounded text-[11px] font-mono font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-850 transition-all"
@@ -520,6 +557,32 @@ export default function App() {
         onClose={() => setIsTraceDrawerOpen(false)}
         agents={agents}
         messages={messages}
+      />
+
+      {/* JARVIS-V2: Thought Graph Modal */}
+      <ThoughtGraphModal
+        isOpen={isThoughtGraphOpen}
+        onClose={() => setIsThoughtGraphOpen(false)}
+        thoughts={messages.flatMap((m) => m.thoughts || [])}
+      />
+
+      {/* JARVIS-V2: Code Canvas Drawer */}
+      <CodeCanvasDrawer
+        isOpen={isCodeCanvasOpen}
+        onClose={() => setIsCodeCanvasOpen(false)}
+      />
+
+      {/* JARVIS-V2: Screen Vision HUD */}
+      <ScreenVisionHUD
+        isOpen={isVisionHudOpen}
+        onClose={() => setIsVisionHudOpen(false)}
+      />
+
+      {/* JARVIS-V2: Compact PiP Widget */}
+      <CompactPiPWidget
+        state={jarvisState}
+        onExpand={() => setActiveView('ASSISTANT')}
+        onSendCommand={handleSendMessage}
       />
     </div>
   );

@@ -130,6 +130,11 @@ class GuardrailEngine:
 
         return True, user_text, None
 
+    def detect_prompt_injection(self, user_text: str) -> bool:
+        """Helper to quickly check if a user prompt contains malicious injection or jailbreak attempts."""
+        is_safe, _, _ = self.sanitize_prompt_input(user_text)
+        return not is_safe
+
     def validate_python_ast(self, code_str: str) -> Tuple[bool, str]:
         """AST safety check on Python code prior to execution to block forbidden low-level exploits."""
         try:
