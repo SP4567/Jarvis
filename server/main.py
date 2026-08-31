@@ -30,7 +30,6 @@ from server.core.vision_grounding import vision_grounding_engine
 from server.core.knowledge_graph import knowledge_graph
 from server.core.desktop_controller import desktop_controller
 from server.soc.kernel_etw_monitor import kernel_etw_monitor
-from server.soc.adversary_emulator import adversary_emulator
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -563,10 +562,6 @@ def rollback_action_endpoint():
 @app.get("/api/v2/soc/kernel_etw", dependencies=[Depends(verify_auth_header)])
 def get_kernel_etw_telemetry_endpoint():
     return [e.dict() for e in kernel_etw_monitor.inspect_live_kernel_telemetry()]
-
-@app.post("/api/v2/soc/emulation", dependencies=[Depends(verify_auth_header)])
-def run_adversary_emulation_endpoint():
-    return adversary_emulator.run_emulation_suite()
 
 if __name__ == "__main__":
     import uvicorn

@@ -6,7 +6,6 @@ from server.core.vision_grounding import vision_grounding_engine
 from server.core.knowledge_graph import knowledge_graph
 from server.core.desktop_controller import desktop_controller
 from server.soc.kernel_etw_monitor import kernel_etw_monitor
-from server.soc.adversary_emulator import adversary_emulator
 from server.core.orchestrator import orchestrator
 from server.core.models import ExecutionLifecycleState, SafetyTier
 
@@ -136,13 +135,6 @@ def test_kernel_etw_monitor_and_memory_injection():
 
     mem_scan = kernel_etw_monitor.detect_memory_injection(1000)
     assert "memory_injection_detected" in mem_scan
-
-def test_adversary_emulator_atomic_red_team():
-    """Verifies Atomic Red Team simulation runner and coverage scoring."""
-    suite = adversary_emulator.run_emulation_suite()
-    assert suite["total_emulations_run"] >= 3
-    assert suite["mitre_coverage_percentage"] >= 90.0
-    assert suite["readiness_verdict"] == "PROVEN_DEFENSIVE_RESILIENCE"
 
 @pytest.mark.asyncio
 async def test_orchestrator_v2_unified_dispatch():
