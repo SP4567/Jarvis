@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Shield, Sparkles, Activity, Settings, Radio, Volume2, ShieldAlert, Layers, Power, Brain, Cpu, GitBranch, Terminal, Eye } from 'lucide-react';
 import ArcReactor from './components/ArcReactor';
 import VoiceController from './components/VoiceController';
@@ -521,9 +521,14 @@ export default function App() {
             />
           </div>
 
-          {/* Right Activity Feed (4 cols) */}
+          {/* Right Activity Feed with Integrated Directives & Prompt Field (4 cols) */}
           <div className="lg:col-span-4 h-full">
-            <ActivityFeed messages={messages} />
+            <ActivityFeed 
+              messages={messages} 
+              onSendCommand={handleSendMessage}
+              disabled={!isConnected}
+              onClearFeed={() => setMessages([])}
+            />
           </div>
         </main>
       ) : (
@@ -532,11 +537,12 @@ export default function App() {
         </main>
       )}
 
-      {/* Bottom Subagents Matrix & Command Bar */}
-      <footer className="space-y-3">
-        {activeView === 'ASSISTANT' && <AgentMatrix agents={agents} />}
-        <CommandInput onSendCommand={handleSendMessage} disabled={!isConnected} />
-      </footer>
+      {/* Bottom Subagents Matrix */}
+      {activeView === 'ASSISTANT' && (
+        <footer className="space-y-3">
+          <AgentMatrix agents={agents} />
+        </footer>
+      )}
 
       {/* Embedded Cyber Music Player */}
       <CyberPlayer

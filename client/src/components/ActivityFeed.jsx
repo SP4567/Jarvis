@@ -1,9 +1,36 @@
 ﻿import React, { useEffect, useRef, useState } from 'react';
-import { Terminal, User, Bot, CheckCircle, ShieldCheck, Copy, Check, Trash2, ArrowUpRight, Cpu } from 'lucide-react';
+import { 
+  Terminal, 
+  User, 
+  Bot, 
+  Copy, 
+  Check, 
+  Trash2, 
+  Sparkles, 
+  CornerDownLeft, 
+  X, 
+  Cpu 
+} from 'lucide-react';
+import { playCommandSendSound } from '../utils/audioEffects';
 
-export default function ActivityFeed({ messages = [] }) {
+const QUICK_COMMANDS = [
+  "Run live SOC security audit",
+  "What are my system vitals?",
+  "Play synthwave ambient soundtrack",
+  "Write python script to calculate fibonacci",
+  "Remember my name is Suyash",
+  "What time is it in Tokyo?"
+];
+
+export default function ActivityFeed({ 
+  messages = [], 
+  onSendCommand, 
+  disabled = false,
+  onClearFeed
+}) {
   const scrollEndRef = useRef(null);
   const [copiedIdx, setCopiedIdx] = useState(null);
+  const [inputVal, setInputVal] = useState('');
 
   useEffect(() => {
     scrollEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -15,10 +42,24 @@ export default function ActivityFeed({ messages = [] }) {
     setTimeout(() => setCopiedIdx(null), 2000);
   };
 
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!inputVal.trim() || disabled) return;
+    playCommandSendSound();
+    if (onSendCommand) onSendCommand(inputVal.trim());
+    setInputVal('');
+  };
+
+  const handleChipClick = (cmd) => {
+    if (disabled) return;
+    playCommandSendSound();
+    if (onSendCommand) onSendCommand(cmd);
+  };
+
   return (
-    <div className="bg-slate-900/70 backdrop-blur-xl rounded-xl p-4 border border-white/[0.08] flex flex-col h-[400px] shadow-2xl">
-      {/* Header */}
-      <div className="flex items-center justify-between pb-3 border-b border-white/[0.06] mb-3">
+    <div className="bg-slate-900/70 backdrop-blur-xl rounded-xl p-4 border border-white/[0.08] flex flex-col h-[520px] shadow-2xl justify-between font-mono">
+      {/* 1. Header */}
+      <div className="flex items-center justify-between pb-2.5 border-b border-white/[0.06] mb-2.5">
         <div className="flex items-center gap-2">
           <div className="p-1.5 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-400">
             <Terminal size={14} />
@@ -30,15 +71,25 @@ export default function ActivityFeed({ messages = [] }) {
             <p className="text-[9px] font-mono text-slate-500">NEURAL TELEMETRY STREAM</p>
           </div>
         </div>
+
         <div className="flex items-center gap-2">
           <span className="px-2.5 py-0.5 rounded-md bg-slate-950/80 border border-white/[0.06] text-[10px] font-mono text-slate-400 font-mono-num">
             {messages.length} EVENTS
           </span>
+          {messages.length > 0 && onClearFeed && (
+            <button
+              onClick={onClearFeed}
+              className="p-1 rounded hover:bg-slate-800 text-slate-500 hover:text-slate-300 transition-colors"
+              title="Clear Feed History"
+            >
+              <Trash2 size={12} />
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Scrollable message container */}
-      <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 font-mono text-xs">
+      {/* 2. Scrollable Message Container */}
+      <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 font-mono text-xs mb-3">
         {messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-slate-500 text-xs font-mono space-y-1.5 text-center p-4">
             <Cpu size={22} className="text-slate-600 mb-1" />
@@ -120,6 +171,60 @@ export default function ActivityFeed({ messages = [] }) {
           })
         )}
         <div ref={scrollEndRef} />
+      </div>
+
+      {/* 3. Integrated Quick Directives & Prompt Input Field */}
+      <div className="space-y-2 pt-2 border-t border-white/[0.06]">
+        {/* Quick Suggestion Chips */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs scrollbar-none">
+          <span className="text-[9px] text-slate-500 font-semibold uppercase flex items-center gap-1 flex-shrink-0">
+            <Sparkles size={10} className="text-sky-400" /> DIRECTIVES:
+          </span>
+          {QUICK_COMMANDS.map((cmd, i) => (
+            <button
+              key={i}
+              onClick={() => handleChipClick(cmd)}
+              disabled={disabled}
+              className="px-2 py-0.5 rounded bg-slate-950/80 hover:bg-slate-850 border border-white/[0.06] hover:border-white/[0.14] text-slate-400 hover:text-slate-200 text-[9px] whitespace-nowrap transition-all flex-shrink-0"
+            >
+              {cmd}
+            </button>
+          ))}
+        </div>
+
+        {/* Prompt Field Input Bar */}
+        <form onSubmit={handleSubmit} className="relative flex items-center">
+          <div className="absolute left-3 text-slate-400 flex items-center gap-1 pointer-events-none">
+            <Terminal size={13} className="text-sky-400" />
+            <span className="text-slate-600 text-xs">&gt;</span>
+          </div>
+          <input
+            type="text"
+            value={inputVal}
+            onChange={(e) => setInputVal(e.target.value)}
+            placeholder="Enter directive for J.A.R.V.I.S. (or use Voice)..."
+            disabled={disabled}
+            className="w-full pl-9 pr-20 py-2 rounded-lg bg-slate-950/90 border border-white/[0.08] focus:border-sky-500/40 focus:ring-1 focus:ring-sky-500/20 focus:outline-none text-slate-100 placeholder-slate-500 text-xs font-mono transition-all shadow-inner"
+          />
+          {inputVal && (
+            <button
+              type="button"
+              onClick={() => setInputVal('')}
+              className="absolute right-16 p-1 text-slate-500 hover:text-slate-300 transition-colors"
+              title="Clear text"
+            >
+              <X size={12} />
+            </button>
+          )}
+          <button
+            type="submit"
+            disabled={!inputVal.trim() || disabled}
+            className="absolute right-1.5 flex items-center gap-1 px-2.5 py-1 rounded bg-sky-600 hover:bg-sky-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-mono font-semibold text-[11px] transition-all shadow-sm"
+          >
+            <span>EXEC</span>
+            <CornerDownLeft size={10} />
+          </button>
+        </form>
       </div>
     </div>
   );
