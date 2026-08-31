@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { Terminal, Play, CheckCircle2, AlertCircle, X, Copy, Check, Sparkles, RefreshCw } from 'lucide-react';
 
 export default function CodeCanvasDrawer({ isOpen, onClose }) {
@@ -27,13 +27,36 @@ print(f"Sample Section Entropy: {calculate_entropy(sample_bytes)}")
   const handleRunCode = async () => {
     setIsRunning(true);
     setOutput('Compiling and executing in isolated AST sandbox...');
-    setTimeout(() => {
+    const startTime = performance.now();
+
+    try {
+      const res = await fetch('http://127.0.0.1:8000/api/code/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code })
+      });
+
+      const elapsed = (performance.now() - startTime).toFixed(1);
+
+      if (res.ok) {
+        const data = await res.json();
+        const stdout = data.stdout || '';
+        const stderr = data.stderr || '';
+        const isSuccess = data.success !== false && data.exit_code === 0;
+
+        let statusHeader = isSuccess
+          ? `>>> AST Verification: PASSED (Zero security violations)\n>>> Process exited with code 0 (Execution Time: ${elapsed}ms)\n`
+          : `>>> AST / Runtime Result (Exit Code: ${data.exit_code}):\n`;
+
+        setOutput(statusHeader + (stdout || stderr || 'Code executed successfully (no stdout returned).'));
+      } else {
+        setOutput('>>> Error: Failed to communicate with sandbox runtime backend.');
+      }
+    } catch (e) {
+      setOutput(`>>> Sandbox Execution Error: ${e.message}`);
+    } finally {
       setIsRunning(false);
-      setOutput(`>>> AST Verification: PASSED (Zero security violations)
->>> Executing in Sandbox...
-Sample Section Entropy: 1.8424
->>> Process exited with code 0 (Execution Time: 4.2ms)`);
-    }, 600);
+    }
   };
 
   const handleCopy = () => {

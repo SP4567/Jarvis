@@ -14,6 +14,7 @@ from server.core.live_voice import voice_engine
 from server.core.guardrails import guardrail_engine
 from server.core.smart_memory import smart_memory
 from server.agents.system_agent import system_agent
+from server.agents.coding_agent import coding_agent
 
 # SOC Multi-Agent Security Grid Imports
 from server.soc.soc_orchestrator import soc_orchestrator
@@ -573,6 +574,13 @@ def rollback_action_endpoint():
 @app.get("/api/v2/soc/kernel_etw", dependencies=[Depends(verify_auth_header)])
 def get_kernel_etw_telemetry_endpoint():
     return [e.dict() for e in kernel_etw_monitor.inspect_live_kernel_telemetry()]
+
+class CodeExecuteRequest(BaseModel):
+    code: str
+
+@app.post("/api/code/execute", dependencies=[Depends(verify_auth_header)])
+async def execute_code_endpoint(req: CodeExecuteRequest):
+    return coding_agent.execute_python_code(req.code)
 
 if __name__ == "__main__":
     import uvicorn
