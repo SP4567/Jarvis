@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Cpu, HardDrive, Battery, BatteryCharging, Zap, Clock, Activity, Wifi, ShieldCheck, Thermometer } from 'lucide-react';
 
 export default function TelemetryPanel({ vitals = {} }) {
@@ -33,29 +33,29 @@ export default function TelemetryPanel({ vitals = {} }) {
   const battery = vitals.battery || { percent: 94, power_plugged: true };
   const cpuTemp = vitals.cpu_temp || (42 + Math.floor(cpuPct * 0.3));
 
-  const renderCircularGauge = (pct, colorClass, strokeColor, label, valueText, iconNode) => {
-    const radius = 28;
+  const renderCircularGauge = (pct, strokeColor, label, valueText, iconNode) => {
+    const radius = 24;
     const circumference = 2 * Math.PI * radius;
     const strokeDashoffset = circumference - (pct / 100) * circumference;
 
     return (
-      <div className="flex flex-col items-center justify-center p-3 rounded-xl bg-slate-950/80 border border-slate-800 relative overflow-hidden transition-all hover:border-slate-750">
+      <div className="flex flex-col items-center justify-center p-3 rounded-xl bg-slate-950/60 border border-white/[0.06] hover:border-white/[0.12] transition-all group">
         <div className="relative flex items-center justify-center">
-          <svg className="w-20 h-20 -rotate-90">
+          <svg className="w-16 h-16 -rotate-90">
             <circle
-              cx="40"
-              cy="40"
+              cx="32"
+              cy="32"
               r={radius}
-              className="stroke-slate-850"
-              strokeWidth="4"
+              className="stroke-slate-800/80"
+              strokeWidth="3.5"
               fill="transparent"
             />
             <circle
-              cx="40"
-              cy="40"
+              cx="32"
+              cy="32"
               r={radius}
               stroke={strokeColor}
-              strokeWidth="4"
+              strokeWidth="3.5"
               strokeDasharray={circumference}
               strokeDashoffset={strokeDashoffset}
               strokeLinecap="round"
@@ -65,27 +65,27 @@ export default function TelemetryPanel({ vitals = {} }) {
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
             {iconNode}
-            <span className={`text-xs font-mono font-bold ${colorClass} mt-0.5`}>
+            <span className="text-[11px] font-mono-num font-bold text-slate-100 mt-0.5">
               {pct}%
             </span>
           </div>
         </div>
-        <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider mt-1 font-semibold">
+        <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider mt-1.5 font-medium">
           {label}
         </span>
-        <span className="text-[9px] font-mono text-slate-500">{valueText}</span>
+        <span className="text-[9px] font-mono text-slate-500 font-mono-num">{valueText}</span>
       </div>
     );
   };
 
   return (
-    <div className="bg-slate-900/95 rounded-xl p-4 border border-slate-800 flex flex-col justify-between h-full shadow-xl">
+    <div className="bg-slate-900/70 backdrop-blur-xl rounded-xl p-4 border border-white/[0.08] flex flex-col justify-between h-full shadow-2xl space-y-4">
       <div>
         {/* Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-3">
+        <div className="flex items-center justify-between pb-3 border-b border-white/[0.06] mb-3">
           <div className="flex items-center gap-2">
-            <div className="p-1 rounded bg-slate-800 text-slate-300">
-              <Zap size={14} className="text-sky-400" />
+            <div className="p-1.5 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-400">
+              <Zap size={14} />
             </div>
             <div>
               <h2 className="text-xs uppercase tracking-wider font-mono text-slate-100 font-bold">
@@ -95,105 +95,97 @@ export default function TelemetryPanel({ vitals = {} }) {
             </div>
           </div>
           <div className="text-right font-mono">
-            <div className="flex items-center justify-end gap-1 text-xs text-slate-200 font-semibold">
+            <div className="flex items-center justify-end gap-1 text-xs text-slate-200 font-semibold font-mono-num">
               <Clock size={11} className="text-slate-400" />
               <span>{timeStr}</span>
             </div>
-            <span className="text-[9px] text-slate-500">{dateStr}</span>
+            <p className="text-[9px] text-slate-500">{dateStr}</p>
           </div>
         </div>
 
-        {/* Circular Gauges Row */}
-        <div className="grid grid-cols-2 gap-2.5 mb-3">
+        {/* 3 Circular Diagnostic Gauges */}
+        <div className="grid grid-cols-3 gap-2.5 mb-3.5">
           {renderCircularGauge(
             cpuPct,
-            'text-sky-400',
             '#38bdf8',
-            'CPU LOAD',
-            `${vitals.cpu_count || 8} Cores Active`,
-            <Cpu size={12} className="text-sky-400" />
+            'CPU',
+            `${vitals.cpu_count || 8} Cores`,
+            <Cpu size={11} className="text-sky-400" />
           )}
           {renderCircularGauge(
             ramPct,
-            'text-amber-400',
-            '#fbbf24',
-            'MEMORY',
-            `${vitals.ram_used_gb || '7.4'} / ${vitals.ram_total_gb || '16.0'} GB`,
-            <Zap size={12} className="text-amber-400" />
+            '#10b981',
+            'RAM',
+            `${vitals.ram_used_gb || 5.2} / ${vitals.ram_total_gb || 8.0}G`,
+            <Activity size={11} className="text-emerald-400" />
+          )}
+          {renderCircularGauge(
+            diskPct,
+            '#f59e0b',
+            'DISK',
+            `${vitals.disk_free_gb || 14}G Free`,
+            <HardDrive size={11} className="text-amber-400" />
           )}
         </div>
 
-        {/* Storage & Thermal Bars */}
-        <div className="space-y-2.5 mb-3">
-          {/* Storage (C:) Bar */}
-          <div className="p-2.5 rounded-lg bg-slate-950/80 border border-slate-800">
-            <div className="flex items-center justify-between text-xs font-mono mb-1.5">
-              <span className="text-slate-400 flex items-center gap-1.5 text-[11px]">
-                <HardDrive size={12} className="text-emerald-400" />
-                <span>STORAGE (C:)</span>
-              </span>
-              <span className="text-emerald-400 font-bold text-xs">{diskPct}%</span>
+        {/* Secondary Metric Rows */}
+        <div className="space-y-2 font-mono text-xs">
+          {/* Thermal Sensor */}
+          <div className="flex items-center justify-between p-2 rounded-lg bg-slate-950/50 border border-white/[0.05]">
+            <div className="flex items-center gap-1.5 text-slate-400 text-[11px]">
+              <Thermometer size={12} className="text-rose-400" />
+              <span>TEMPERATURE</span>
             </div>
-            <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-emerald-500 transition-all duration-700"
-                style={{ width: `${diskPct}%` }}
-              />
-            </div>
-            <div className="flex justify-between text-[9px] font-mono text-slate-500 mt-1">
-              <span>Used: {vitals.disk_used_gb || '154'} GB</span>
-              <span>Total: {vitals.disk_total_gb || '476'} GB</span>
+            <div className="flex items-center gap-2">
+              <div className="w-16 bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                <div
+                  className="bg-gradient-to-r from-emerald-500 via-amber-500 to-rose-500 h-full rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(100, (cpuTemp / 90) * 100)}%` }}
+                />
+              </div>
+              <span className="text-slate-200 font-bold text-[11px] font-mono-num">{cpuTemp}°C</span>
             </div>
           </div>
 
-          {/* Thermal Indicator */}
-          <div className="p-2.5 rounded-lg bg-slate-950/80 border border-slate-800">
-            <div className="flex items-center justify-between text-xs font-mono mb-1.5">
-              <span className="text-slate-400 flex items-center gap-1.5 text-[11px]">
-                <Thermometer size={12} className="text-indigo-400" />
-                <span>TEMPERATURE</span>
+          {/* Battery Status */}
+          <div className="flex items-center justify-between p-2 rounded-lg bg-slate-950/50 border border-white/[0.05]">
+            <div className="flex items-center gap-1.5 text-slate-400 text-[11px]">
+              {battery.power_plugged ? (
+                <BatteryCharging size={12} className="text-emerald-400" />
+              ) : (
+                <Battery size={12} className="text-amber-400" />
+              )}
+              <span>BATTERY</span>
+            </div>
+            <div className="flex items-center gap-1.5 font-mono-num">
+              <span className="text-slate-200 font-bold text-[11px]">{battery.percent}%</span>
+              <span className="text-[9px] text-slate-500 px-1 py-0.5 rounded bg-slate-900 border border-white/[0.04]">
+                {battery.power_plugged ? 'CHARGING' : 'BATTERY'}
               </span>
-              <span className="text-indigo-300 font-bold text-xs">{cpuTemp}°C</span>
             </div>
-            <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-indigo-500 transition-all duration-700"
-                style={{ width: `${Math.min(100, (cpuTemp / 90) * 100)}%` }}
-              />
+          </div>
+
+          {/* Network Ingress / Egress */}
+          <div className="flex items-center justify-between p-2 rounded-lg bg-slate-950/50 border border-white/[0.05]">
+            <div className="flex items-center gap-1.5 text-slate-400 text-[11px]">
+              <Wifi size={12} className="text-sky-400" />
+              <span>NETWORK</span>
             </div>
-            <div className="flex justify-between text-[9px] font-mono text-slate-500 mt-1">
-              <span>Package Thermal State</span>
-              <span>{cpuTemp < 65 ? 'NOMINAL' : 'ELEVATED'}</span>
+            <div className="flex items-center gap-2 text-[10px] text-slate-300 font-mono-num">
+              <span className="text-emerald-400">↓ {netSpeed.rx} KB/s</span>
+              <span className="text-sky-400">↑ {netSpeed.tx} KB/s</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Network Bandwidth & Battery Footer */}
-      <div className="pt-2.5 border-t border-slate-800 space-y-2">
-        <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 bg-slate-950/80 p-2 rounded-lg border border-slate-800">
-          <div className="flex items-center gap-1.5">
-            <Wifi size={11} className="text-sky-400" />
-            <span>NET RX:</span>
-            <span className="text-slate-200 font-semibold">{netSpeed.rx} KB/s</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span>TX:</span>
-            <span className="text-slate-200 font-semibold">{netSpeed.tx} KB/s</span>
-          </div>
+      {/* Security Interlock Footer Status */}
+      <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between text-[10px] font-mono">
+        <div className="flex items-center gap-1.5 text-emerald-400">
+          <ShieldCheck size={12} />
+          <span className="font-semibold tracking-wide">ZERO-TRUST GUARDRAIL ACTIVE</span>
         </div>
-
-        <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 px-1">
-          <div className="flex items-center gap-1.5">
-            {battery.power_plugged ? (
-              <BatteryCharging size={13} className="text-emerald-400" />
-            ) : (
-              <Battery size={13} className="text-amber-400" />
-            )}
-            <span>POWER: {battery.percent}% {battery.power_plugged ? '(A/C MAINS)' : '(BATTERY)'}</span>
-          </div>
-          <span className="text-emerald-400 font-semibold">ONLINE</span>
-        </div>
+        <span className="text-slate-500">v2.0.0</span>
       </div>
     </div>
   );

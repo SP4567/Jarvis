@@ -367,17 +367,22 @@ export default function App() {
   const criticalIncidentCount = socData.metrics?.critical_p0_p1 || 0;
 
   return (
-    <div className="min-h-screen bg-[#030712] text-slate-100 bg-cyber-grid p-4 md:p-6 flex flex-col justify-between relative overflow-hidden font-sans">
-      {/* Top HUD Header */}
-      <header className="flex flex-wrap items-center justify-between gap-4 pb-3.5 mb-4 border border-slate-800 bg-slate-900/90 px-6 py-3 rounded-xl shadow-lg backdrop-blur-md">
+    <div className="min-h-screen bg-cyber-grid text-slate-100 p-4 md:p-6 flex flex-col justify-between relative overflow-hidden font-sans">
+      {/* Executive Command Header */}
+      <header className="flex flex-wrap items-center justify-between gap-4 pb-3 mb-4 border border-white/[0.08] bg-slate-900/70 backdrop-blur-xl px-5 py-2.5 rounded-xl shadow-2xl">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-sky-400">
+          <div className="w-8 h-8 rounded-lg bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400">
             <Sparkles size={16} />
           </div>
           <div>
-            <h1 className="text-base font-bold tracking-wider text-slate-100 font-mono">
-              J.A.R.V.I.S. V2
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-sm font-bold tracking-wider text-slate-100 font-mono">
+                J.A.R.V.I.S.
+              </h1>
+              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-950 border border-white/[0.08] text-sky-300 font-bold">
+                V2.0 PRO
+              </span>
+            </div>
             <p className="text-[10px] font-mono text-slate-400">
               NEXT-GEN COGNITIVE OPERATING SYSTEM
             </p>
@@ -390,12 +395,12 @@ export default function App() {
         </div>
 
         {/* HUD View Mode Switcher & V2 Tools */}
-        <div className="flex items-center gap-1.5 p-1 rounded-lg bg-slate-950 border border-slate-800 flex-wrap">
+        <div className="flex items-center gap-1.5 p-1 rounded-lg bg-slate-950/80 border border-white/[0.06] flex-wrap">
           <button
             onClick={() => setActiveView('ASSISTANT')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-mono font-medium transition-all ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-mono font-medium transition-all ${
               activeView === 'ASSISTANT'
-                ? 'bg-slate-800 text-white shadow-sm font-semibold'
+                ? 'bg-slate-800 text-white shadow-sm font-semibold border border-white/[0.08]'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
@@ -404,9 +409,9 @@ export default function App() {
           
           <button
             onClick={() => setActiveView('SOC_OPERATIONS')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-mono font-medium transition-all relative ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-mono font-medium transition-all relative ${
               activeView === 'SOC_OPERATIONS'
-                ? 'bg-slate-800 text-rose-300 shadow-sm font-semibold'
+                ? 'bg-rose-950/80 text-rose-200 shadow-sm font-semibold border border-rose-800/60'
                 : 'text-slate-400 hover:text-rose-300'
             }`}
           >
@@ -419,7 +424,7 @@ export default function App() {
           {/* V2 Thought Graph Button */}
           <button
             onClick={() => setIsThoughtGraphOpen(true)}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded text-[11px] font-mono font-medium text-sky-400 hover:text-sky-200 hover:bg-slate-850 transition-all"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[11px] font-mono font-medium text-sky-400 hover:text-sky-200 hover:bg-slate-900 transition-all border border-transparent hover:border-white/[0.06]"
             title="Open Swarm Thought Graph"
           >
             <GitBranch size={12} />
@@ -429,7 +434,7 @@ export default function App() {
           {/* V2 Code Canvas Button */}
           <button
             onClick={() => setIsCodeCanvasOpen(true)}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded text-[11px] font-mono font-medium text-emerald-400 hover:text-emerald-200 hover:bg-slate-850 transition-all"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[11px] font-mono font-medium text-emerald-400 hover:text-emerald-200 hover:bg-slate-900 transition-all border border-transparent hover:border-white/[0.06]"
             title="Open Code Canvas IDE"
           >
             <Terminal size={12} />
@@ -439,7 +444,7 @@ export default function App() {
           {/* V2 Vision Grounding Button */}
           <button
             onClick={() => setIsVisionHudOpen(true)}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded text-[11px] font-mono font-medium text-amber-400 hover:text-amber-200 hover:bg-slate-850 transition-all"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[11px] font-mono font-medium text-amber-400 hover:text-amber-200 hover:bg-slate-900 transition-all border border-transparent hover:border-white/[0.06]"
             title="Open Screen Vision 2.0"
           >
             <Eye size={12} />
@@ -449,20 +454,20 @@ export default function App() {
           {/* Smart Memory Button */}
           <button
             onClick={() => setIsMemoryModalOpen(true)}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded text-[11px] font-mono font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-850 transition-all"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[11px] font-mono font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-900 transition-all border border-transparent hover:border-white/[0.06]"
             title="Open Smart Memory Matrix"
           >
-            <Brain size={12} className="text-slate-400" />
+            <Brain size={12} />
             <span>MEMORY</span>
           </button>
 
           {/* Reasoning Trace Drawer Button */}
           <button
             onClick={() => setIsTraceDrawerOpen(true)}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded text-[11px] font-mono font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-850 transition-all"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[11px] font-mono font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-900 transition-all border border-transparent hover:border-white/[0.06]"
             title="Open Agent Reasoning Trace"
           >
-            <Cpu size={12} className="text-slate-400" />
+            <Cpu size={12} />
             <span>TRACES</span>
           </button>
 
@@ -470,7 +475,7 @@ export default function App() {
           <button
             onClick={handleToggleSoc}
             title={socEnabled ? "SOC Security Active" : "SOC Security Standby"}
-            className={`flex items-center gap-1 px-2.5 py-1.5 rounded text-[11px] font-mono font-medium transition-all ${
+            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[11px] font-mono font-medium transition-all ${
               socEnabled 
                 ? 'bg-emerald-950/60 text-emerald-300 border border-emerald-800/40' 
                 : 'bg-amber-950/60 text-amber-300 border border-amber-800/40'
@@ -482,11 +487,11 @@ export default function App() {
         </div>
 
         {/* Live Network & Security Status */}
-        <div className="flex items-center gap-3 text-xs font-mono">
-          <div className="flex items-center gap-2 px-2.5 py-1 rounded-md bg-slate-950 border border-slate-800">
+        <div className="flex items-center gap-2 text-xs font-mono">
+          <div className="flex items-center gap-2 px-2.5 py-1 rounded-md bg-slate-950/80 border border-white/[0.06]">
             <span
               className={`w-2 h-2 rounded-full ${
-                isConnected ? 'bg-emerald-400' : 'bg-rose-500'
+                isConnected ? 'bg-emerald-400 status-dot-pulse' : 'bg-rose-500'
               }`}
             />
             <span className={isConnected ? 'text-slate-300 text-[11px]' : 'text-rose-400 text-[11px]'}>
@@ -498,14 +503,14 @@ export default function App() {
 
       {/* Main View Container */}
       {activeView === 'ASSISTANT' ? (
-        <main className="grid grid-cols-1 lg:grid-cols-12 gap-5 flex-1 items-start mb-4">
+        <main className="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1 items-start mb-4">
           {/* Left Telemetry Panel (3 cols) */}
           <div className="lg:col-span-3 h-full">
             <TelemetryPanel vitals={vitals} />
           </div>
 
           {/* Center Holographic Core & Voice Controls (5 cols) */}
-          <div className="lg:col-span-5 flex flex-col items-center justify-center gap-5 py-2">
+          <div className="lg:col-span-5 flex flex-col items-center justify-center gap-4 py-2">
             <ArcReactor state={jarvisState} audioLevel={audioLevel} size={300} />
             
             <VoiceController
@@ -528,7 +533,7 @@ export default function App() {
       )}
 
       {/* Bottom Subagents Matrix & Command Bar */}
-      <footer className="space-y-3.5">
+      <footer className="space-y-3">
         {activeView === 'ASSISTANT' && <AgentMatrix agents={agents} />}
         <CommandInput onSendCommand={handleSendMessage} disabled={!isConnected} />
       </footer>
