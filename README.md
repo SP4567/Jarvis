@@ -97,3 +97,6 @@ AUTO_APPROVE_TIER2=true
 ```bash
 $env:PYTHONPATH="."
 python -m pytest server/tests/test_jarvis.py -v
+
+
+# Made with love, by Suyash Pandey.
